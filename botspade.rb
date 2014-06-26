@@ -4,6 +4,7 @@
 #
 #   Copyright (c) 2014 by Jason Preston
 #   A Twitch Chat Bot
+#   Version 0.2 - 6/24/2014
 #
 
 require 'isaac'
@@ -103,11 +104,15 @@ end
 #
 
 on :channel, /^!changelog/i do
-  msg channel, "v0.2: No betting in fractions. Added new !commands. All users can now !give points."
+  msg channel, "v0.3: Removed points fee on !give. Added !commands command. Can bet on tie. Added !top. Added Viewer DB !lookup & !update"
 end
 
 on :channel, /^!beard/i do
   msg channel, "Spade wears a beard because it's awesome. He trims with a Panasonic ER-GB40 and shaves the lower whiskers with a safety razor, which is badass."
+end
+
+on :channel, /^!commands/i do
+  msg channel, "Some commands include: !points, !bet, !leaderboard, !changelog, !points, !welcome, !shave, !getpoints, !minispade, !twitter, !spade, !help. There are others."
 end
 
 on :channel, /^!shave/i do
@@ -139,11 +144,11 @@ on :channel, /^!spadeout/i do
 end
 
 on :channel, /^!botspade/i do
-  msg channel, "I respond to !beard, !bet [points] [win/loss], !checkin, !points, and a few other surprises."
+  msg channel, "I respond to !beard, !bet [points] [win/loss/tie], !checkin, !points, and a few other surprises."
 end
 
 on :channel, /^!help/i do
-  msg channel, "I respond to !beard, !bet [points] [win/loss], !checkin, !points, and a few other surprises."
+  msg channel, "I respond to !beard, !bet [points] [win/loss/tie], !checkin, !points, and a few other surprises."
 end
 
 on :channel, /^!points/i do
@@ -162,9 +167,15 @@ on :channel, /^!leaderboard/i do
 end
 
 on :channel, /^!top/i do
-  protoboard = @pointsdb.sort_by { |nick, points| points }
-  leaderboard = protoboard.reverse
-  msg channel, "Leaderboard: #{leaderboard[0]}, #{leaderboard[1]}, #{leaderboard[2]}, #{leaderboard[3]}, #{leaderboard[4]}"
+  topviewers = @checkindb.sort_by { |nick, checkin_array| checkin_array.count }
+  top = topviewers.reverse
+  string = []
+  5.times do |i|
+    amount = top[i.to_i][1].count
+    name = top[i.to_i][0]
+    string << name << amount
+  end
+  msg channel, "Top Viewers by !checkins: #{string[0]} (#{string[1]} checkins), #{string[2]} (#{string[3]} checkins), #{string[4]} (#{string[5]} checkins)"
 end
 
 ############################################################################
@@ -176,7 +187,7 @@ on :channel, /^!update (.*) (.*) (.*)/i do |first, second, last|
   person = first
   attribute = second
   value = last
-  if nick == "watchspade"
+  if person == nick
     if @viewerdb.key?(person)
       person_hash = @viewerdb[person]
       person_hash[attribute] = value
@@ -192,32 +203,52 @@ on :channel, /^!update (.*) (.*) (.*)/i do |first, second, last|
   end  
 end
 
+on :channel, /^!update$/i do
+  msg channel, "Add info to your file in the Viewer db. Usage: !update [username] [attribute] [value], e.g. !update watchspade country USA"
+end
+
 on :channel, /^!lookup (.*) (.*)/i do |first, last|
   person = first
   attribute = last
-  if nick == "watchspade"
-    if @viewerdb.key?(person)
-      person_hash = @viewerdb[person]
-      lookup_value = person_hash[attribute]
-      msg channel, "#{person}: #{lookup_value}"
-    else
-      msg channel, "Sorry, nothing in the viewer database for that!"  
-    end    
-  end  
-end
-
-on :channel, /^!lookup (.*) index/i do |first|
-  person = first
-  if nick == "watchspade"
-    if @viewerdb.key?(person)
+  if @viewerdb.key?(person)
+    if attribute == "index"
       person_hash = @viewerdb[person]
       person_array = person_hash.keys
       msg channel, "#{person}: #{person_array}"
     else
-      msg channel, "Sorry, nothing in the viewer database for that!"  
-    end    
+      person_hash = @viewerdb[person]
+      lookup_value = person_hash[attribute]
+      msg channel, "#{person}: #{lookup_value}"
+    end  
+  else
+    msg channel, "Sorry, nothing in the viewer database for that!"  
+  end    
+end
+
+on :channel, /^!lookup$/i do
+  msg channel, "Lookup other viewers. Usage: !lookup [username] [attribute]. You can also do !lookup [username] index to see what attributes are available."
+end
+
+on :channel, /^!remove (.*) (.*)/i do |first, second|
+  person = first
+  attribute = second
+  if person == nick
+    if @viewerdb.key?(person)
+      person_hash = @viewerdb[person]
+      person_hash.delete(attribute)
+      @viewerdb[person] = person_hash
+      msg channel, "#{attribute} removed for #{nick}"
+    else
+      msg channle, "#{nick}: I don't see anything to remove!"
+    end
+    save_data_silent
   end  
 end
+
+on :channel, /^!remove$/i do
+  msg channel, "Remove info from your file in the Viewer db. Usage: !remove [username] [attribute], e.g. !remove watchspade country"
+end
+
 
 ############################################################################
 #
@@ -231,7 +262,7 @@ on :channel, /^!bet$/i do
   else
     bet_status = "(Bets are closed right now)"  
   end
-  msg channel, "Usage: !bet [points] [win/loss] e.g. !bet 15 loss #{bet_status}"
+  msg channel, "Usage: !bet [points] [win/loss/tie] e.g. !bet 15 loss #{bet_status}"
 end
 
 on :channel, /^!bet (.*) (.*)/i do |first, last|
@@ -241,18 +272,13 @@ on :channel, /^!bet (.*) (.*)/i do |first, last|
     if first.to_f < 1
       msg channel, "Sorry, you can't bet in fractions!"
     else  
-      if @pointsdb.key?(nick)
-      points_available = @pointsdb[nick]
-      if points_available < bet_amount
-        msg channel, "Whoops, you're trying to bet more points than you have!"
-      else
+      if person_has_enough_points(nick, bet_amount) 
         @betsdb[nick] = [bet_amount, win_loss]
         take_points(nick, bet_amount)
         msg channel, "#{nick}: Bet recorded."
+      else
+        msg channel, "Whoops, #{nick} it looks like you don't have enough points!"
       end
-    else
-      msg channel, "Whoops, #{nick} it looks like you don't have any points!"
-    end
     end
   else
     msg channel, "Sorry, bets aren't open right now."
@@ -287,6 +313,18 @@ on :channel, /^!reportgame (.*)/i do |first|
         end
       end
       save_data_silent
+    elsif first == "tie"
+      @betsdb.keys.each do |bettor|
+        bet_amount = @betsdb[bettor][0]
+        win_loss = @betsdb[bettor][1]
+        if win_loss == "tie"
+          winnings = bet_amount * 2
+          total_won = total_won + winnings
+          winner_count = winner_count + 1
+          give_points(bettor, winnings)
+        end
+      end
+      save_data_silent  
     end
     @betsdb = {}
     save_data_silent
@@ -298,7 +336,7 @@ on :channel, /^!togglebets/i do
   if nick == "watchspade"  
     if @betsopen == FALSE
       @betsopen = TRUE
-      msg channel, "Betting is now open. Place your bets: !bet [points] [win/loss]"
+      msg channel, "Betting is now open. Place your bets: !bet [points] [win/loss/tie]"
     elsif @betsopen == TRUE
       @betsopen = FALSE
       msg channel, "Betting is now closed. GL."
@@ -317,9 +355,8 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
     msg channel, "#{nick} has given #{person} #{points} Spade Points"
   else
     if person_has_enough_points(nick, points)
-        points_to_take = points + 1
-        take_points(nick, points_to_take)
         give_points(person, points)
+        take_points(nick, points)
         msg channel, "#{nick} has given #{person} #{points} Spade Points"
     else
       msg channel, "I'm sorry #{nick}, you don't have enough Spade Points!"
@@ -328,7 +365,7 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
 end
 
 on :channel, /^!give$/i do 
-  msg channel, "Usage: !give [username] [points]. Transfer fee is one point."
+  msg channel, "Usage: !give [username] [points]."
 end
 
 
@@ -396,13 +433,20 @@ on :channel, /^!purchase (.*)/i do |purchase|
     else
       msg channel, "I'm sorry, #{nick}, you don't have enough Spade Points!"
     end  
+  elsif purchase == "suit"
+    if person_has_enough_points(nick, 10)
+      take_points(nick, 10)
+      msg channel, "#{nick} has bribed Spade to wear a suit for the rest of this stream. Oh boy. [-100sp]"  
+    else
+      msg channel, "I'm sorry, #{nick}, you don't have enough Spade Points!"
+    end  
   elsif purchase == "menu"
-    msg channel, "SpadeStore Menu: !fedora (20sp - Spade wears fedora), !bdp (10sp - Spade tries a big dick play)"
+    msg channel, "SpadeStore Menu: !fedora (20sp - Spade wears fedora), !bdp (10sp - Spade tries a big dick play), !suit (100sp - Spade wears a suit)"
   end
 end
 
 on :channel, /^!purchase$/i do
-  msg channel, "SpadeStore Menu: !fedora (20sp - Spade wears fedora), !bdp (10sp - Spade tries a big dick play)"
+  msg channel, "SpadeStore Menu: !fedora (20sp - Spade wears fedora), !bdp (10sp - Spade tries a big dick play), !suit (100sp - Spade wears a suit)"
 end
 
 # Elaborate on what you can buy
@@ -411,8 +455,12 @@ on :channel, /^!fedora/i do
   msg channel, "You can make Spade wear a fedora by spending 20 Spade Points. Type !purchase fedora to activate."
 end
 
+on :channel, /^!suit/i do
+  msg channel, "You can make Spade wear a suit by spending 100 Spade Points. Type !purchase suit to activate."
+end
+
 on :channel, /^!bdp/i do
-  msg channel, "BDP stand for Big Dick Play. You can make Spade attempt a BDP for 10 points with !purchase bdp"
+  msg channel, "BDP stands for Big Dick Play. You can make Spade attempt a BDP for 10 points with !purchase bdp"
 end
 
 
