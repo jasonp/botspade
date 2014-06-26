@@ -4,7 +4,7 @@
 #
 #   Copyright (c) 2014 by Jason Preston
 #   A Twitch Chat Bot
-#   Version 0.2 - 6/24/2014
+#   Version 0.4 - 6/26/2014
 #
 
 require 'isaac'
@@ -26,11 +26,11 @@ end
 helpers do
   
   def save_data
-    msg channel, "success" if File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json)
+    msg channel, "success" if File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
   end
   
   def save_data_silent
-    File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json)
+    File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
   end
   
   def take_points(nick, points)
@@ -71,6 +71,7 @@ on :connect do  # initializations
   join "#watchspade"
   
   # Keeps track of a user's points. DB is persistent. 
+  # e.g. {watchspade => 34}
   @pointsdb = {}
   if File::exists?('pointsdb.txt')
     pointsfile = File.read('pointsdb.txt') 
@@ -78,6 +79,7 @@ on :connect do  # initializations
   end
   
   # Track whether or not we've given points today already. DB is persistent. 
+  # e.g. {watchspade => [987239487234, 12398429837]}
   @checkindb = {}
   if File::exists?('checkindb.txt')
     checkinfile = File.read('checkindb.txt') 
@@ -85,17 +87,31 @@ on :connect do  # initializations
   end  
   
   # Establish a database of Spade's viewers
+  # e.g. {viewer => {country => USA, strength => 12}}
   @viewerdb = {}
   if File::exists?('viewerdb.txt')
     viewerfile = File.read('viewerdb.txt') 
     @viewerdb = JSON.parse(viewerfile)
   end
   
+  # Keeps track of wins / losses & maybe other stats eventually. 
+  # e.g. {wincount => 5, losscount => 20, 298273429834 => win, 2094203498234 => loss}
+  @gamesdb = {}
+  if File::exists?('gamesdb.txt')
+    gamesfile = File.read('gamesdb.txt') 
+    @gamesdb = JSON.parse(gamesfile)
+  end  
+  
   # Track bets made. Resets every time bets are tallied.
   @betsdb = {}
   
   # Toggle whether or not bets are allowed
   @betsopen = FALSE 
+  
+  # Whose bot is this?
+  @botmaster = "Spade"
+  @botname = "BotSpade"
+  
 end
 
 ############################################################################
@@ -104,15 +120,15 @@ end
 #
 
 on :channel, /^!changelog/i do
-  msg channel, "v0.3: Removed points fee on !give. Added !commands command. Can bet on tie. Added !top. Added Viewer DB !lookup & !update"
+  msg channel, "v0.4: inputs now auto-downcase. Added !stats and !statsme. Added referrals: !referredby for usage. "
 end
 
 on :channel, /^!beard/i do
-  msg channel, "Spade wears a beard because it's awesome. He trims with a Panasonic ER-GB40 and shaves the lower whiskers with a safety razor, which is badass."
+  msg channel, "#{@botmaster} wears a beard because it's awesome. He trims with a Panasonic ER-GB40 and shaves the lower whiskers with a safety razor, which is badass."
 end
 
 on :channel, /^!commands/i do
-  msg channel, "Some commands include: !points, !bet, !leaderboard, !changelog, !points, !welcome, !shave, !getpoints, !minispade, !twitter, !spade, !help. There are others."
+  msg channel, "Some commands include: !points, !bet, !top, !leaderboard, !changelog, !points, !welcome, !shave, !getpoints, !minispade, !twitter, !spade, !tweet, !follow, !help. There are others."
 end
 
 on :channel, /^!shave/i do
@@ -120,19 +136,27 @@ on :channel, /^!shave/i do
 end
 
 on :channel, /^!welcome/i do
-  msg channel, "Welcome to Spade's stream! Don't forget to !checkin for Spade Points. Type !help for more options."
+  msg channel, "Welcome to #{@botmaster}'s stream! Don't forget to !checkin for #{@botmaster} Points. Type !help for more options."
 end
 
 on :channel, /^!getpoints/i do
-  msg channel, "You can get Spade Points by checking in (!checkin), donating, and winning bets (!bet for usage). Or you can be given points (!give)."
+  msg channel, "You can get #{@botmaster} Points by checking in (!checkin), donating, tweeting (!tweet), & winning bets (!bet for usage). Or you can be given points (!give)."
 end
 
 on :channel, /^!minispade/i do
   msg channel, "Spade has a just-about two year old son: minispade."
 end
 
+on :channel, /^!follow/i do
+  msg channel, "Earn five points for following the stream (first time only!!), five points for following @jasonp on Twitter (first time only!!)"
+end
+
 on :channel, /^!twitter/i do
   msg channel, "Spade's twitter is http://twitter.com/jasonp"
+end
+
+on :channel, /^!tweet/i do
+  msg channel, "Earn five points for tweeting: Watching Spade stream some CSGO! http://twitch.tv/watchspade cc @jasonp"
 end
 
 on :channel, /^!spade$/i do
@@ -154,7 +178,7 @@ end
 on :channel, /^!points/i do
   if @pointsdb.key?(nick)
     userpoints = @pointsdb[nick].to_s
-    msg channel, "#{nick} has #{userpoints} Spade Points."
+    msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
   else
     msg channel, "Sorry, it doesn't look like you have any Spade Points!"  
   end
@@ -178,15 +202,29 @@ on :channel, /^!top/i do
   msg channel, "Top Viewers by !checkins: #{string[0]} (#{string[1]} checkins), #{string[2]} (#{string[3]} checkins), #{string[4]} (#{string[5]} checkins)"
 end
 
+on :channel, /^!statsme/i do
+  user_record = @checkindb[nick] if @checkindb.key?(nick)
+  checkins = user_record.count.to_s
+  msg channel, "#{nick}: #{checkins} checkins!"
+end
+
+on :channel, /^!stats$/i do
+  wincount = @gamesdb["wincount"]
+  losscount = @gamesdb["losscount"]
+  tiecount = @gamesdb["tiecount"]
+  wlratio = wincount.to_f / losscount.to_f
+  msg channel, "#{@botmaster} has reported #{wincount} wins, #{losscount} losses, and #{tiecount} ties. W/L ratio: #{wlratio}"
+end
+
 ############################################################################
 #
 # Viewer DB
 #
 
 on :channel, /^!update (.*) (.*) (.*)/i do |first, second, last|
-  person = first
-  attribute = second
-  value = last
+  person = first.downcase
+  attribute = second.downcase
+  value = last.downcase
   if person == nick
     if @viewerdb.key?(person)
       person_hash = @viewerdb[person]
@@ -208,8 +246,8 @@ on :channel, /^!update$/i do
 end
 
 on :channel, /^!lookup (.*) (.*)/i do |first, last|
-  person = first
-  attribute = last
+  person = first.downcase
+  attribute = last.downcase
   if @viewerdb.key?(person)
     if attribute == "index"
       person_hash = @viewerdb[person]
@@ -230,8 +268,8 @@ on :channel, /^!lookup$/i do
 end
 
 on :channel, /^!remove (.*) (.*)/i do |first, second|
-  person = first
-  attribute = second
+  person = first.downcase
+  attribute = second.downcase
   if person == nick
     if @viewerdb.key?(person)
       person_hash = @viewerdb[person]
@@ -267,10 +305,10 @@ end
 
 on :channel, /^!bet (.*) (.*)/i do |first, last|
   bet_amount = first.to_i
-  win_loss = last
+  win_loss = last.downcase
   if @betsopen == TRUE
     if first.to_f < 1
-      msg channel, "Sorry, you can't bet in fractions!"
+      msg channel, "Sorry, you can't bet in fractions/phrases... whole numbers only!"
     else  
       if person_has_enough_points(nick, bet_amount) 
         @betsdb[nick] = [bet_amount, win_loss]
@@ -289,7 +327,9 @@ on :channel, /^!reportgame (.*)/i do |first|
   if nick == "watchspade"
     total_won = 0
     winner_count = 0
-    if first == "win"
+    if first.downcase == "win"
+      @gamesdb[Time.now.utc.to_s] = "win"
+      @gamesdb["wincount"] = @gamesdb[wincount] + 1
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
@@ -301,7 +341,9 @@ on :channel, /^!reportgame (.*)/i do |first|
         end  
       end
       save_data_silent
-    elsif first == "loss"
+    elsif first.downcase == "loss"
+      @gamesdb[Time.now.utc.to_s] = "win"
+      @gamesdb["losscount"] = @gamesdb["losscount"] + 1
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
@@ -313,7 +355,9 @@ on :channel, /^!reportgame (.*)/i do |first|
         end
       end
       save_data_silent
-    elsif first == "tie"
+    elsif first.downcase == "tie"
+      @gamesdb[Time.now.utc.to_s] = "win"
+      @gamesdb["tiecount"] = @gamesdb["tiecount"] + 1      
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
@@ -328,7 +372,7 @@ on :channel, /^!reportgame (.*)/i do |first|
     end
     @betsdb = {}
     save_data_silent
-    msg channel, "Bets tallied. #{total_won.to_s} Spade Points won by #{winner_count.to_s} gambler(s)."
+    msg channel, "Bets tallied. #{total_won.to_s} #{@botmaster} Points won by #{winner_count.to_s} gambler(s)."
   end  
 end
 
@@ -344,22 +388,26 @@ on :channel, /^!togglebets/i do
   end
 end
 
+on :channel, /^!1v1$/i do
+  msg channel, "Usage: !1v1 [win/loss] - all 1v1 bets are for 2 points, but cost nothing"
+end
+
 # Method for users to give points to other viewers
 # !give user points
 
 on :channel, /^!give (.*) (.*)/i do |first, last|
-  person = first
+  person = first.downcase
   points = last.to_i
   if nick == "watchspade"
     give_points(person, points)
-    msg channel, "#{nick} has given #{person} #{points} Spade Points"
+    msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
   else
     if person_has_enough_points(nick, points)
         give_points(person, points)
         take_points(nick, points)
-        msg channel, "#{nick} has given #{person} #{points} Spade Points"
+        msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
     else
-      msg channel, "I'm sorry #{nick}, you don't have enough Spade Points!"
+      msg channel, "I'm sorry #{nick}, you don't have enough #{@botmaster} Points!"
     end  
   end  
 end
@@ -373,7 +421,7 @@ end
 # !take user points
 on :channel, /^!take (.*) (.*)/i do |first, last|
   if nick == "watchspade"
-    person = first
+    person = first.downcase
     points = last.to_i
     take_points(person, points)
   end  
@@ -387,12 +435,12 @@ on :channel, /^!checkin/i do
     last_checkin = checkin_array[-1]
     allowed_checkin = Time.now.utc - 43200
     if last_checkin > allowed_checkin.to_i
-      msg channel, "#{nick} checked in already, no Spade Points given."
+      msg channel, "#{nick} checked in already, no #{@botmaster} Points given."
     else 
       checkin_array << Time.now.utc.to_i
       @checkindb[nick] = checkin_array
       give_points(nick, 4)
-      msg channel, "Thanks for checking in, #{nick}! You have been given 4 Spade Points!"
+      msg channel, "Thanks for checking in, #{nick}! You have been given 4 #{@botmaster} Points!"
       if checkin_array.count == 50
         msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
         give_points(nick, 50)
@@ -401,9 +449,9 @@ on :channel, /^!checkin/i do
   else
     checkin_array = []
     checkin_array << Time.now.utc.to_i
-    give_points(nick, 4)
     @checkindb[nick] = checkin_array
-    msg channel, "Thanks for checking in, #{nick}! You have been given 4 Spade Points!"
+    give_points(nick, 4)
+    msg channel, "Thanks for checking in, #{nick}! You have been given 4 #{@botmaster} Points!"
   end  
 end
 
@@ -415,30 +463,54 @@ end
 
 ############################################################################
 #
+# Referrals
+#
+
+on :channel, /^!referredby$/i do
+  msg channel, "You & someone new each get 10 #{@botmaster} Points! New viewer must enter: !referredby [your username]"
+end
+
+on :channel, /^!referredby (.*)/i do |first|
+  referrer = first.downcase
+  if @checkindb.key?(nick)
+    msg channel, "Hmm, looks like you've checked in here before! Sorry, you only get to be new once!"
+  else
+    checkin_array = []
+    checkin_array << Time.now.utc.to_i
+    @checkindb[nick] = checkin_array
+    give_points(nick, 14)
+    give_points(referrer, 10)
+    msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
+  end
+end
+
+############################################################################
+#
 # The Spade Points Store
 #
 
-on :channel, /^!purchase (.*)/i do |purchase|
+on :channel, /^!purchase (.*)/i do |protopurchase|
+  purchase = protopurchase.downcase
   if purchase == "fedora"
     if person_has_enough_points(nick, 20)
       take_points(nick, 20)
-      msg channel, "#{nick} has forced Spade to wear a Fedora for the rest of this stream. [-20sp]"
+      msg channel, "#{nick} has forced #{@botmaster} to wear a Fedora for the rest of this stream. [-20sp]"
     else
-      msg channel, "I'm sorry, #{nick}, you don't have enough Spade Points!"
+      msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
     end  
   elsif purchase == "bdp"
     if person_has_enough_points(nick, 10)
       take_points(nick, 10)
       msg channel, "#{nick} has demanded that Spade make a Big Dick Play. Here goes nothing. [-10sp]"  
     else
-      msg channel, "I'm sorry, #{nick}, you don't have enough Spade Points!"
+      msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
     end  
   elsif purchase == "suit"
     if person_has_enough_points(nick, 10)
       take_points(nick, 10)
       msg channel, "#{nick} has bribed Spade to wear a suit for the rest of this stream. Oh boy. [-100sp]"  
     else
-      msg channel, "I'm sorry, #{nick}, you don't have enough Spade Points!"
+      msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
     end  
   elsif purchase == "menu"
     msg channel, "SpadeStore Menu: !fedora (20sp - Spade wears fedora), !bdp (10sp - Spade tries a big dick play), !suit (100sp - Spade wears a suit)"
@@ -452,29 +524,31 @@ end
 # Elaborate on what you can buy
 
 on :channel, /^!fedora/i do
-  msg channel, "You can make Spade wear a fedora by spending 20 Spade Points. Type !purchase fedora to activate."
+  msg channel, "You can make #{@botmaster} wear a fedora by spending 20 #{@botmaster} Points. Type !purchase fedora to activate."
 end
 
 on :channel, /^!suit/i do
-  msg channel, "You can make Spade wear a suit by spending 100 Spade Points. Type !purchase suit to activate."
+  msg channel, "You can make #{@botmaster} wear a suit by spending 100 #{@botmaster} Points. Type !purchase suit to activate."
 end
 
 on :channel, /^!bdp/i do
-  msg channel, "BDP stands for Big Dick Play. You can make Spade attempt a BDP for 10 points with !purchase bdp"
+  msg channel, "BDP stands for Big Dick Play. You can make #{@botmaster} attempt a BDP for 10 points with !purchase bdp"
 end
 
 
-# build profile: !lookup [user] [attribute] - Country/Name/SteamID/Rank/Age
+# bet on 1v1
+# get & set a status message?
 # !uptime
-# !status (or something) - show check-ins, points, etc
+
 # bet on other aspects: ace, 4k, 3k, 2k, 1k, pistol something, beat average stats, & so on
-# check on checkin to see what number (100th checkin, etc)
-# build my own raffle? allow people to "buy" extra tickets w/ points
+
 # week-long lottery type of thing? reward for most check-ins? (I don't track this currently)
-# viewerdb - save csgorank, name, other profile details hash within hash
 # !game starts game of clues with !command subsequent, winner gets 50 points or something.
-# give points for first use of a command?
 # refactor / generalize: admins array, make Spade Points a variable, etc.
-# 63 users have filled in their [country]
+# !bitcoin / !gaben / !esea / !CEVO / !altpug
+# make points given for checkin, etc, variables to be set via chat command via moderators. 
+# make store modifiable via chat commands?
+# old changelog:
+# v0.3: Removed points fee on !give. Added !commands command. Can bet on tie. Added !top. Added Viewer DB !lookup & !update
 
 
