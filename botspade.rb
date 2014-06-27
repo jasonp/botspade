@@ -110,7 +110,7 @@ on :connect do  # initializations
   
   # Whose bot is this?
   @botmaster = "Spade"
-  @botname = "BotSpade"
+  @checkin_points = 4
   
 end
 
@@ -204,7 +204,7 @@ end
 
 on :channel, /^!statsme/i do
   user_record = @checkindb[nick] if @checkindb.key?(nick)
-  checkins = user_record.count.to_s
+  checkins = user_record.count
   msg channel, "#{nick}: #{checkins} checkins!"
 end
 
@@ -329,7 +329,11 @@ on :channel, /^!reportgame (.*)/i do |first|
     winner_count = 0
     if first.downcase == "win"
       @gamesdb[Time.now.utc.to_s] = "win"
-      @gamesdb["wincount"] = @gamesdb[wincount] + 1
+      if @gamesdb["wincount"]
+        @gamesdb["wincount"] = @gamesdb["wincount"] + 1
+      else
+        @gamesdb["wincount"] = 1
+      end
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
@@ -343,7 +347,11 @@ on :channel, /^!reportgame (.*)/i do |first|
       save_data_silent
     elsif first.downcase == "loss"
       @gamesdb[Time.now.utc.to_s] = "win"
-      @gamesdb["losscount"] = @gamesdb["losscount"] + 1
+      if @gamesdb["losscount"]
+        @gamesdb["losscount"] = @gamesdb["losscount"] + 1
+      else
+        @gamesdb["losscount"] = 1
+      end
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
@@ -357,7 +365,11 @@ on :channel, /^!reportgame (.*)/i do |first|
       save_data_silent
     elsif first.downcase == "tie"
       @gamesdb[Time.now.utc.to_s] = "win"
-      @gamesdb["tiecount"] = @gamesdb["tiecount"] + 1      
+      if @gamesdb["tiecount"]
+        @gamesdb["tiecount"] = @gamesdb["tiecount"] + 1
+      else
+        @gamesdb["tiecount"] = 1
+      end   
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
