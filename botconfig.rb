@@ -2,12 +2,14 @@
 #  This file will not be touched by updates, so you can customize it to your heart's content
 #  Just replace botspade.rb with the latest version when you wish to upgrade
 #
+#  NOTE: RIGHT NOW, THAT IS A LIE, THIS FILE IS UNDER DEVELOPMENT
+#
 
 configure do |c|
   c.nick    = "botspade"
   c.server  = "irc.twitch.tv"
   c.port    = 6667
-  c.password = "oauth:cbr74bjxkfc5r24lqs0yph44fgbgam7"
+  c.password = "" # Get it here: http://twitchapps.com/tmi/
   c.verbose = true
 end
 

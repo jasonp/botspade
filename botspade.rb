@@ -6,9 +6,12 @@
 #   A Twitch Chat Bot
 #   Version 0.4 - 6/26/2014
 #
+#   Feel free to use for your own nefarious purposes
 
 require 'isaac'
 require 'json'
+
+require "./botconfig"
 
 configure do |c|
   c.nick    = "botspade"
@@ -67,52 +70,6 @@ helpers do
   
 end
 
-on :connect do  # initializations
-  join "#watchspade"
-  
-  # Keeps track of a user's points. DB is persistent. 
-  # e.g. {watchspade => 34}
-  @pointsdb = {}
-  if File::exists?('pointsdb.txt')
-    pointsfile = File.read('pointsdb.txt') 
-    @pointsdb = JSON.parse(pointsfile)
-  end
-  
-  # Track whether or not we've given points today already. DB is persistent. 
-  # e.g. {watchspade => [987239487234, 12398429837]}
-  @checkindb = {}
-  if File::exists?('checkindb.txt')
-    checkinfile = File.read('checkindb.txt') 
-    @checkindb = JSON.parse(checkinfile)
-  end  
-  
-  # Establish a database of Spade's viewers
-  # e.g. {viewer => {country => USA, strength => 12}}
-  @viewerdb = {}
-  if File::exists?('viewerdb.txt')
-    viewerfile = File.read('viewerdb.txt') 
-    @viewerdb = JSON.parse(viewerfile)
-  end
-  
-  # Keeps track of wins / losses & maybe other stats eventually. 
-  # e.g. {wincount => 5, losscount => 20, 298273429834 => win, 2094203498234 => loss}
-  @gamesdb = {}
-  if File::exists?('gamesdb.txt')
-    gamesfile = File.read('gamesdb.txt') 
-    @gamesdb = JSON.parse(gamesfile)
-  end  
-  
-  # Track bets made. Resets every time bets are tallied.
-  @betsdb = {}
-  
-  # Toggle whether or not bets are allowed
-  @betsopen = FALSE 
-  
-  # Whose bot is this?
-  @botmaster = "Spade"
-  @checkin_points = 4
-  
-end
 
 ############################################################################
 #
