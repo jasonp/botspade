@@ -346,7 +346,7 @@ on :channel, /^!reportgame (.*)/i do |first|
       end
       save_data_silent
     elsif first.downcase == "loss"
-      @gamesdb[Time.now.utc.to_s] = "win"
+      @gamesdb[Time.now.utc.to_s] = "loss"
       if @gamesdb["losscount"]
         @gamesdb["losscount"] = @gamesdb["losscount"] + 1
       else
@@ -364,7 +364,7 @@ on :channel, /^!reportgame (.*)/i do |first|
       end
       save_data_silent
     elsif first.downcase == "tie"
-      @gamesdb[Time.now.utc.to_s] = "win"
+      @gamesdb[Time.now.utc.to_s] = "tie"
       if @gamesdb["tiecount"]
         @gamesdb["tiecount"] = @gamesdb["tiecount"] + 1
       else
@@ -400,9 +400,9 @@ on :channel, /^!togglebets/i do
   end
 end
 
-on :channel, /^!1v1$/i do
-  msg channel, "Usage: !1v1 [win/loss] - all 1v1 bets are for 2 points, but cost nothing"
-end
+#on :channel, /^!1v1$/i do
+#  msg channel, "Usage: !1v1 [win/loss] - all 1v1 bets are for 2 points, but cost nothing"
+#end
 
 # Method for users to give points to other viewers
 # !give user points
@@ -547,11 +547,12 @@ on :channel, /^!bdp/i do
   msg channel, "BDP stands for Big Dick Play. You can make #{@botmaster} attempt a BDP for 10 points with !purchase bdp"
 end
 
+# togglebets turns on a timer (5min) that auto-toggles off
 
 # bet on 1v1
 # get & set a status message?
 # !uptime
-
+# split out a separate file for variables & customization, leave engine in main file
 # bet on other aspects: ace, 4k, 3k, 2k, 1k, pistol something, beat average stats, & so on
 
 # week-long lottery type of thing? reward for most check-ins? (I don't track this currently)
