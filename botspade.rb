@@ -10,9 +10,25 @@
 
 require 'isaac'
 require 'json'
+require 'sqlite3'
 
 require "./botconfig"
 
+############################################################################
+# Sqllite3 Related setup
+
+# Lets open up Sqlite3 Database
+db = SQLite3::Database.new "botspade.db"
+
+# Initial Tables - points / checkin / viewers / games / bets
+# We will generate a custom user table so we have a relational ID for other tables.
+db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT)"
+db.execute "CREATE UNIQUE INDEX IF NOT EXISTS username ON users (username)"
+
+# Each checkin will have its own row, With related ID from users table and timestamp of when.
+db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"
+# Change win (1) / lose (2) / tie (3) to INTs for database optimisation.
+db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
 
 
 ############################################################################
@@ -21,15 +37,15 @@ require "./botconfig"
 #
 
 helpers do
-  
+
   def save_data
     msg channel, "success" if File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
   end
-  
+
   def save_data_silent
     File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
   end
-  
+
   def take_points(nick, points)
     if @pointsdb.key?(nick)
       @pointsdb[nick] = @pointsdb[nick] - points
@@ -38,7 +54,7 @@ helpers do
       msg channel, "#{nick} does not have any Spade Points!"
     end
   end
-  
+
   def give_points(nick, points)
     if @pointsdb.key?(nick)
       @pointsdb[nick] = @pointsdb[nick] + points
@@ -47,7 +63,7 @@ helpers do
     end
     save_data_silent
   end
-  
+
   def person_has_enough_points(person, points_required)
     if @pointsdb.key?(person)
       points_available = @pointsdb[person]
@@ -61,7 +77,7 @@ helpers do
     end
     return points_check_result
   end
-  
+
 end
 
 
@@ -131,7 +147,7 @@ on :channel, /^!points/i do
     userpoints = @pointsdb[nick].to_s
     msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
   else
-    msg channel, "Sorry, it doesn't look like you have any Spade Points!"  
+    msg channel, "Sorry, it doesn't look like you have any Spade Points!"
   end
 end
 
@@ -186,10 +202,10 @@ on :channel, /^!update (.*) (.*) (.*)/i do |first, second, last|
       person_hash = {}
       person_hash[attribute] = value
       @viewerdb[person] = person_hash
-      msg channel, "#{attribute} updated for #{nick}"  
+      msg channel, "#{attribute} updated for #{nick}"
     end
     save_data_silent
-  end  
+  end
 end
 
 on :channel, /^!update$/i do
@@ -208,10 +224,10 @@ on :channel, /^!lookup (.*) (.*)/i do |first, last|
       person_hash = @viewerdb[person]
       lookup_value = person_hash[attribute]
       msg channel, "#{person}: #{lookup_value}"
-    end  
+    end
   else
-    msg channel, "Sorry, nothing in the viewer database for that!"  
-  end    
+    msg channel, "Sorry, nothing in the viewer database for that!"
+  end
 end
 
 on :channel, /^!lookup$/i do
@@ -231,7 +247,7 @@ on :channel, /^!remove (.*) (.*)/i do |first, second|
       msg channle, "#{nick}: I don't see anything to remove!"
     end
     save_data_silent
-  end  
+  end
 end
 
 on :channel, /^!remove$/i do
@@ -249,7 +265,7 @@ on :channel, /^!bet$/i do
   if @betsopen == TRUE
     bet_status = "(Bets are open right now)"
   else
-    bet_status = "(Bets are closed right now)"  
+    bet_status = "(Bets are closed right now)"
   end
   msg channel, "Usage: !bet [points] [win/loss/tie] e.g. !bet 15 loss #{bet_status}"
 end
@@ -260,11 +276,15 @@ on :channel, /^!bet (.*) (.*)/i do |first, last|
   if @betsopen == TRUE
     if first.to_f < 1
       msg channel, "Sorry, you can't bet in fractions/phrases... whole numbers only!"
-    else  
-      if person_has_enough_points(nick, bet_amount) 
-        @betsdb[nick] = [bet_amount, win_loss]
-        take_points(nick, bet_amount)
-        msg channel, "#{nick}: Bet recorded."
+    else
+      if person_has_enough_points(nick, bet_amount)
+        if @betsdb[nick]
+          msg channel, "#{nick}: Bet Refused, You have already bet"
+        else
+          @betsdb[nick] = [bet_amount, win_loss]
+          take_points(nick, bet_amount)
+          msg channel, "#{nick}: Bet recorded."
+        end
       else
         msg channel, "Whoops, #{nick} it looks like you don't have enough points!"
       end
@@ -275,7 +295,7 @@ on :channel, /^!bet (.*) (.*)/i do |first, last|
 end
 
 on :channel, /^!reportgame (.*)/i do |first|
-  if nick == "watchspade"
+  if nick == @botmaster
     total_won = 0
     winner_count = 0
     if first.downcase == "win"
@@ -293,7 +313,7 @@ on :channel, /^!reportgame (.*)/i do |first|
           total_won = total_won + winnings
           winner_count = winner_count + 1
           give_points(bettor, winnings)
-        end  
+        end
       end
       save_data_silent
     elsif first.downcase == "loss"
@@ -320,7 +340,7 @@ on :channel, /^!reportgame (.*)/i do |first|
         @gamesdb["tiecount"] = @gamesdb["tiecount"] + 1
       else
         @gamesdb["tiecount"] = 1
-      end   
+      end
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
@@ -331,16 +351,16 @@ on :channel, /^!reportgame (.*)/i do |first|
           give_points(bettor, winnings)
         end
       end
-      save_data_silent  
+      save_data_silent
     end
     @betsdb = {}
     save_data_silent
     msg channel, "Bets tallied. #{total_won.to_s} #{@botmaster} Points won by #{winner_count.to_s} gambler(s)."
-  end  
+  end
 end
 
-on :channel, /^!togglebets/i do 
-  if nick == "watchspade"  
+on :channel, /^!togglebets/i do
+  if nick == @botmaster
     if @betsopen == FALSE
       @betsopen = TRUE
       msg channel, "Betting is now open. Place your bets: !bet [points] [win/loss/tie]"
@@ -361,7 +381,7 @@ end
 on :channel, /^!give (.*) (.*)/i do |first, last|
   person = first.downcase
   points = last.to_i
-  if nick == "watchspade"
+  if nick == @botmaster
     give_points(person, points)
     msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
   else
@@ -371,11 +391,11 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
         msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
     else
       msg channel, "I'm sorry #{nick}, you don't have enough #{@botmaster} Points!"
-    end  
-  end  
+    end
+  end
 end
 
-on :channel, /^!give$/i do 
+on :channel, /^!give$/i do
   msg channel, "Usage: !give [username] [points]."
 end
 
@@ -383,23 +403,23 @@ end
 # Method for Spade to take points from naughty viewers
 # !take user points
 on :channel, /^!take (.*) (.*)/i do |first, last|
-  if nick == "watchspade"
+  if nick == @botmaster
     person = first.downcase
     points = last.to_i
     take_points(person, points)
-  end  
+  end
 end
 
 # Method to give points for chat activity
 # Check to see if points have been given yet today
-on :channel, /^!checkin/i do 
+on :channel, /^!checkin/i do
   if @checkindb.key?(nick)
     checkin_array = @checkindb[nick]
     last_checkin = checkin_array[-1]
     allowed_checkin = Time.now.utc - 43200
     if last_checkin > allowed_checkin.to_i
       msg channel, "#{nick} checked in already, no #{@botmaster} Points given."
-    else 
+    else
       checkin_array << Time.now.utc.to_i
       @checkindb[nick] = checkin_array
       give_points(nick, 4)
@@ -407,7 +427,7 @@ on :channel, /^!checkin/i do
       if checkin_array.count == 50
         msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
         give_points(nick, 50)
-      end  
+      end
     end
   else
     checkin_array = []
@@ -415,11 +435,11 @@ on :channel, /^!checkin/i do
     @checkindb[nick] = checkin_array
     give_points(nick, 4)
     msg channel, "Thanks for checking in, #{nick}! You have been given 4 #{@botmaster} Points!"
-  end  
+  end
 end
 
 on :channel, /^!savedata/i do
-  if nick == "watchspade"
+  if nick == @botmaster
     save_data
   end
 end
@@ -460,21 +480,21 @@ on :channel, /^!purchase (.*)/i do |protopurchase|
       msg channel, "#{nick} has forced #{@botmaster} to wear a Fedora for the rest of this stream. [-20sp]"
     else
       msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
-    end  
+    end
   elsif purchase == "bdp"
     if person_has_enough_points(nick, 10)
       take_points(nick, 10)
-      msg channel, "#{nick} has demanded that Spade make a Big Dick Play. Here goes nothing. [-10sp]"  
+      msg channel, "#{nick} has demanded that Spade make a Big Dick Play. Here goes nothing. [-10sp]"
     else
       msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
-    end  
+    end
   elsif purchase == "suit"
     if person_has_enough_points(nick, 10)
       take_points(nick, 10)
-      msg channel, "#{nick} has bribed Spade to wear a suit for the rest of this stream. Oh boy. [-100sp]"  
+      msg channel, "#{nick} has bribed Spade to wear a suit for the rest of this stream. Oh boy. [-100sp]"
     else
       msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
-    end  
+    end
   elsif purchase == "menu"
     msg channel, "SpadeStore Menu: !fedora (20sp - Spade wears fedora), !bdp (10sp - Spade tries a big dick play), !suit (100sp - Spade wears a suit)"
   end
@@ -510,9 +530,7 @@ end
 # !game starts game of clues with !command subsequent, winner gets 50 points or something.
 # refactor / generalize: admins array, make Spade Points a variable, etc.
 # !bitcoin / !gaben / !esea / !CEVO / !altpug
-# make points given for checkin, etc, variables to be set via chat command via moderators. 
+# make points given for checkin, etc, variables to be set via chat command via moderators.
 # make store modifiable via chat commands?
 # old changelog:
 # v0.3: Removed points fee on !give. Added !commands command. Can bet on tie. Added !top. Added Viewer DB !lookup & !update
-
-
