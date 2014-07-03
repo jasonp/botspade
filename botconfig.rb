@@ -5,77 +5,65 @@
 #  NOTE: RIGHT NOW, THAT IS A LIE, THIS FILE IS UNDER DEVELOPMENT
 #
 
+###############
+#
+# Basic connection and configuration info. First, make a Twitch account for your bot.
+# Then set "c.nick" to your bot Twitch account's username. Mine is botspade. You'll need to
+# set "c.password" to the oauth string you can get at the link provided below (visit the page
+# while logged in to your bot's Twitch account).
+#
+
 configure do |c|
   c.nick    = "botspade"
   c.server  = "irc.twitch.tv"
   c.port    = 6667
-  c.password = "" # Get it here: http://twitchapps.com/tmi/
+  c.password = "" # Get yours here: http://twitchapps.com/tmi/
   c.verbose = true
 end
 
-on :connect do  # initializations
-  join "#watchspade"
-  
-  ############################################################################
-  # Sqllite3 Related setup
+#############
+#
+# Whose bot is this? Let's set some customizeations. How many points should people get when
+# they check in? What is your name, so that the bot customizes?
 
-  # Lets open up Sqlite3 Database
-  db = SQLite3::Database.new "botspade.db"
+helpers do
 
-  # Initial Tables - points / checkin / viewers / games / bets
-  # We will generate a custom user table so we have a relational ID for other tables.
-  db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT)"
-  db.execute "CREATE UNIQUE INDEX IF NOT EXISTS username ON users (username)"
-
-  # Each checkin will have its own row, With related ID from users table and timestamp of when.
-  db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"
-  # Change win (1) / lose (2) / tie (3) to INTs for database optimisation.
-  db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
-  
-  
-  # Keeps track of a user's points. DB is persistent. 
-  # e.g. {watchspade => 34}
-  @pointsdb = {}
-  if File::exists?('pointsdb.txt')
-    pointsfile = File.read('pointsdb.txt') 
-    @pointsdb = JSON.parse(pointsfile)
-  end
-  
-  # Track whether or not we've given points today already. DB is persistent. 
-  # e.g. {watchspade => [987239487234, 12398429837]}
-  @checkindb = {}
-  if File::exists?('checkindb.txt')
-    checkinfile = File.read('checkindb.txt') 
-    @checkindb = JSON.parse(checkinfile)
-  end  
-  
-  # Establish a database of Spade's viewers
-  # e.g. {viewer => {country => USA, strength => 12}}
-  @viewerdb = {}
-  if File::exists?('viewerdb.txt')
-    viewerfile = File.read('viewerdb.txt') 
-    @viewerdb = JSON.parse(viewerfile)
-  end
-  
-  # Keeps track of wins / losses & maybe other stats eventually. 
-  # e.g. {wincount => 5, losscount => 20, 298273429834 => win, 2094203498234 => loss}
-  @gamesdb = {}
-  if File::exists?('gamesdb.txt')
-    gamesfile = File.read('gamesdb.txt') 
-    @gamesdb = JSON.parse(gamesfile)
-  end  
-  
-  # Track bets made. Resets every time bets are tallied.
-  @betsdb = {}
-  
-  # Toggle whether or not bets are allowed
-  @betsopen = FALSE 
-  
-  # Set initial uptime
-  @stream_start_time == "none"
-  
-  # Whose bot is this?
+  # Name of the streamer. e.g. Spade, results in: "user has 57 Spade Points"
   @botmaster = "Spade"
+
+  # How many points should a user be given when they !checkin to your stream?
   @checkin_points = 4
-  
+
+  # Bot admins. Which users will be able to !togglebets, !savedata, and other admin-only commands?
+  # follow the example below to add as many admins as you'd like to.
+  @admins_array = []
+  @admins_array << "watchspade" # << "another_admin" << "another_one"
+
+end
+
+#############
+#
+# Let's add some custom commands and responses. Sorry for the syntax, but it can be very powerful!
+# Here's how it works. Each command has a block of code that looks like this:
+#
+# on :channel, /^!testme/i do    <---- this is the command the user types in chat, e.g. !points
+#   msg channel, "Here's the info I want to put in response."   <--- Here is how the bot responds
+# end
+#
+# To create custom commands, replace the "testme" with the command you want to make, e.g. "gaben"
+# Put the bot's response in the quotes. To make more commands, copy + pase a new block of code.
+#
+# GLHF.
+
+
+on :channel, /^!replaceme/i do
+  msg channel, "Put the bot's response here. You can use the name of the user who triggered the command with: #{nick}"
+end
+
+on :channel, /^!twitter/i do
+  msg channel, "Spade's twitter is http://twitter.com/jasonp"
+end
+
+on :channel, /^!shave/i do
+  msg channel, "If the stream reaches 75 concurrent viewers, Spade will shave his beard off. On stream."
 end
