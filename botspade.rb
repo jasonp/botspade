@@ -587,7 +587,6 @@ end
 
 # bet on 1v1
 # get & set a status message?
-# !uptime
 # split out a separate file for variables & customization, leave engine in main file
 # bet on other aspects: ace, 4k, 3k, 2k, 1k, pistol something, beat average stats, & so on
 
