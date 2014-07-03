@@ -14,7 +14,7 @@ require 'sqlite3'
 
 require "./botconfig"
 
-
+require './botlite'
 
 ############################################################################
 #
@@ -22,10 +22,12 @@ require "./botconfig"
 #
 
 helpers do
-  
+
   # An expensive way to pretend like I have a daemon
   # check for latent processes and execute them
   def fake_daemon
+    msg channel, Time.now.utc
+    msg channel, @betstimer
     if Time.now.utc > @betstimer + 10 && @betsopen == TRUE #300
       @betsopen = FALSE
       msg channel, "Bets are now closed. GL."
@@ -72,11 +74,11 @@ helpers do
     end
     return points_check_result
   end
-  
+
   def pretty_uptime
     if @stream_start_time == "none"
       return 0
-    else 
+    else
       uptime = Time.now.utc.to_i - @stream_start_time.to_i
       if uptime < 60
         return "#{uptime} seconds"
@@ -450,7 +452,7 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
       else
         msg channel, "I'm sorry #{nick}, you don't have enough #{@botmaster} Points!"
       end
-    else 
+    else
       msg channel, "You can only give points to someone who has checked in at least once!"
     end
   end
@@ -533,7 +535,7 @@ end
 # The Spade Points Store
 #
 #
-# This must eventually be re-written as a loop somehow... 
+# This must eventually be re-written as a loop somehow...
 
 on :channel, /^!purchase (.*)/i do |protopurchase|
   purchase = protopurchase.downcase
