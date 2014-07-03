@@ -17,7 +17,7 @@ configure do |c|
   c.nick    = "botspade"
   c.server  = "irc.twitch.tv"
   c.port    = 6667
-  c.password = "oauth:cbr74bjxkfc5r24lqs0yph44fgbgam7" # Get yours here: http://twitchapps.com/tmi/
+  c.password = "" # Get yours here: http://twitchapps.com/tmi/
   c.verbose = true
 end
 
@@ -38,17 +38,6 @@ helpers do
   # follow the example below to add as many admins as you'd like to.
   @admins_array = []
   @admins_array << "watchspade" # << "another_admin" << "another_one"
-  
-  # Custom call and response
-  @listen_one = "testme"
-  @listen_one_response = "This will also work."
-  
-  @custom_calls = {}
-  @custom_calls["hashtest"] = "Not sure if this will work."
-  @custom_calls["second"] = "Makes it enumerable?"
-  
-  @custom_array = []
-  @custom_array << "hello" << "again"
   
 end
 
