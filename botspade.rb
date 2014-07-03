@@ -14,21 +14,6 @@ require 'sqlite3'
 
 require "./botconfig"
 
-############################################################################
-# Sqllite3 Related setup
-
-# Lets open up Sqlite3 Database
-db = SQLite3::Database.new "botspade.db"
-
-# Initial Tables - points / checkin / viewers / games / bets
-# We will generate a custom user table so we have a relational ID for other tables.
-db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT)"
-db.execute "CREATE UNIQUE INDEX IF NOT EXISTS username ON users (username)"
-
-# Each checkin will have its own row, With related ID from users table and timestamp of when.
-db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"
-# Change win (1) / lose (2) / tie (3) to INTs for database optimisation.
-db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
 
 
 ############################################################################
@@ -37,6 +22,15 @@ db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TIN
 #
 
 helpers do
+  
+  # An expensive way to pretend like I have a daemon
+  # check for latent processes and execute them
+  def fake_daemon
+    if Time.now.utc > @betstimer + 10 && @betsopen == TRUE #300
+      @betsopen = FALSE
+      msg channel, "Bets are now closed. GL."
+    end
+  end
 
   def save_data
     msg channel, "success" if File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
@@ -44,6 +38,7 @@ helpers do
 
   def save_data_silent
     File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
+    fake_daemon
   end
 
   def take_points(nick, points)
@@ -77,6 +72,28 @@ helpers do
     end
     return points_check_result
   end
+  
+  def pretty_uptime
+    if @stream_start_time == "none"
+      return 0
+    else 
+      uptime = Time.now.utc.to_i - @stream_start_time.to_i
+      if uptime < 60
+        return "#{uptime} seconds"
+      elsif uptime > 60 && uptime < 3600
+        uptime_in_minutes = uptime / 60
+        return "#{uptime_in_minutes} minutes"
+      elsif uptime > 3600 && uptime < 86400
+        uptime_in_hours = uptime / 3600
+        calc_remainder = uptime_in_hours.to_i * 3600
+        remainder = uptime - calc_remainder
+        remainder_in_minutes = remainder / 60
+        return "#{uptime_in_hours.to_i} hours and #{remainder_in_minutes} minutes"
+      else
+        return "#{uptime} seconds"
+      end
+    end
+  end
 
 end
 
@@ -87,7 +104,7 @@ end
 #
 
 on :channel, /^!changelog/i do
-  msg channel, "v0.4: inputs now auto-downcase. Added !stats and !statsme. Added referrals: !referredby for usage. "
+  msg channel, "v0.5: Bets now toggle off automatically. Added !uptime. Fixed bug in !give and merged Etheco's code (thanks Etheco!)"
 end
 
 on :channel, /^!beard/i do
@@ -104,6 +121,37 @@ end
 
 on :channel, /^!welcome/i do
   msg channel, "Welcome to #{@botmaster}'s stream! Don't forget to !checkin for #{@botmaster} Points. Type !help for more options."
+  fake_daemon
+end
+
+on :channel, /^!startstream/i do
+  if nick == "watchspade"
+    @stream_start_time = Time.now.utc
+    msg channel, "Stream started."
+  end
+end
+
+on :channel, /^!endstream/i do
+  if nick == "watchspade"
+    @stream_start_time = "none"
+    msg channel, "Stream ended."
+  end
+end
+
+on :channel, /^!uptime/i do
+  @uptime_for_display = pretty_uptime
+  if @uptime_for_display != 0
+    msg channel, "#{@botmaster} has been streaming for #{@uptime_for_display}."
+  else
+    msg channel, "Whoops, #{@botmaster} forgot to start the timer! Starting it now..."
+    @stream_start_time = Time.now.utc
+  end
+end
+
+on :channel, /^!debug/i do
+  if nick == "watchspade"
+    msg channel, "#{@stream_start_time}"
+  end
 end
 
 on :channel, /^!getpoints/i do
@@ -131,6 +179,9 @@ on :channel, /^!spade$/i do
 end
 
 on :channel, /^!spadeout/i do
+  if nick == "watchspade"
+    @stream_start_time = "none"
+  end
   msg channel, "Spaaaaaaaaade out."
 end
 
@@ -149,12 +200,14 @@ on :channel, /^!points/i do
   else
     msg channel, "Sorry, it doesn't look like you have any Spade Points!"
   end
+  fake_daemon
 end
 
 on :channel, /^!leaderboard/i do
   protoboard = @pointsdb.sort_by { |nick, points| points }
   leaderboard = protoboard.reverse
   msg channel, "Leaderboard: #{leaderboard[0]}, #{leaderboard[1]}, #{leaderboard[2]}, #{leaderboard[3]}, #{leaderboard[4]}"
+  fake_daemon
 end
 
 on :channel, /^!top/i do
@@ -167,6 +220,7 @@ on :channel, /^!top/i do
     string << name << amount
   end
   msg channel, "Top Viewers by !checkins: #{string[0]} (#{string[1]} checkins), #{string[2]} (#{string[3]} checkins), #{string[4]} (#{string[5]} checkins)"
+  fake_daemon
 end
 
 on :channel, /^!statsme/i do
@@ -268,6 +322,7 @@ on :channel, /^!bet$/i do
     bet_status = "(Bets are closed right now)"
   end
   msg channel, "Usage: !bet [points] [win/loss/tie] e.g. !bet 15 loss #{bet_status}"
+  fake_daemon
 end
 
 on :channel, /^!bet (.*) (.*)/i do |first, last|
@@ -292,10 +347,11 @@ on :channel, /^!bet (.*) (.*)/i do |first, last|
   else
     msg channel, "Sorry, bets aren't open right now."
   end
+  fake_daemon
 end
 
 on :channel, /^!reportgame (.*)/i do |first|
-  if nick == @botmaster
+  if nick == "watchspade"
     total_won = 0
     winner_count = 0
     if first.downcase == "win"
@@ -360,10 +416,11 @@ on :channel, /^!reportgame (.*)/i do |first|
 end
 
 on :channel, /^!togglebets/i do
-  if nick == @botmaster
+  if nick == "watchspade"
     if @betsopen == FALSE
       @betsopen = TRUE
-      msg channel, "Betting is now open. Place your bets: !bet [points] [win/loss/tie]"
+      @betstimer = Time.now.utc
+      msg channel, "Betting is now open for 5 minutes. Place your bets: !bet [points] [win/loss/tie]"
     elsif @betsopen == TRUE
       @betsopen = FALSE
       msg channel, "Betting is now closed. GL."
@@ -381,16 +438,20 @@ end
 on :channel, /^!give (.*) (.*)/i do |first, last|
   person = first.downcase
   points = last.to_i
-  if nick == @botmaster
+  if nick == "watchspade"
     give_points(person, points)
     msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
   else
-    if person_has_enough_points(nick, points)
-        give_points(person, points)
-        take_points(nick, points)
-        msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
-    else
-      msg channel, "I'm sorry #{nick}, you don't have enough #{@botmaster} Points!"
+    if @checkindb.key?(nick)
+      if person_has_enough_points(nick, points)
+          give_points(person, points)
+          take_points(nick, points)
+          msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
+      else
+        msg channel, "I'm sorry #{nick}, you don't have enough #{@botmaster} Points!"
+      end
+    else 
+      msg channel, "You can only give points to someone who has checked in at least once!"
     end
   end
 end
@@ -403,7 +464,7 @@ end
 # Method for Spade to take points from naughty viewers
 # !take user points
 on :channel, /^!take (.*) (.*)/i do |first, last|
-  if nick == @botmaster
+  if nick == "watchspade"
     person = first.downcase
     points = last.to_i
     take_points(person, points)
@@ -439,7 +500,7 @@ on :channel, /^!checkin/i do
 end
 
 on :channel, /^!savedata/i do
-  if nick == @botmaster
+  if nick == "watchspade"
     save_data
   end
 end
@@ -471,6 +532,8 @@ end
 #
 # The Spade Points Store
 #
+#
+# This must eventually be re-written as a loop somehow... 
 
 on :channel, /^!purchase (.*)/i do |protopurchase|
   purchase = protopurchase.downcase
@@ -518,7 +581,9 @@ on :channel, /^!bdp/i do
   msg channel, "BDP stands for Big Dick Play. You can make #{@botmaster} attempt a BDP for 10 points with !purchase bdp"
 end
 
-# togglebets turns on a timer (5min) that auto-toggles off
+
+
+# build functions (helpers) for common DB calls, e.g. if_user_has_checkins(user), etc
 
 # bet on 1v1
 # get & set a status message?
