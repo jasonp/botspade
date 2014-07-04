@@ -14,12 +14,11 @@ require 'sqlite3'
 
 require "./botconfig"
 
-<<<<<<< HEAD
 require './botlite'
-=======
+
 on :connect do  # initializations
-  join "#watchspade"
-  
+  join @botchan
+
   ############################################################################
   # Sqllite3 Related setup
 
@@ -35,51 +34,50 @@ on :connect do  # initializations
   db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"
   # Change win (1) / lose (2) / tie (3) to INTs for database optimisation.
   db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
-  
-  
-  # Keeps track of a user's points. DB is persistent. 
+
+
+  # Keeps track of a user's points. DB is persistent.
   # e.g. {watchspade => 34}
   @pointsdb = {}
   if File::exists?('pointsdb.txt')
-    pointsfile = File.read('pointsdb.txt') 
+    pointsfile = File.read('pointsdb.txt')
     @pointsdb = JSON.parse(pointsfile)
   end
-  
-  # Track whether or not we've given points today already. DB is persistent. 
+
+  # Track whether or not we've given points today already. DB is persistent.
   # e.g. {watchspade => [987239487234, 12398429837]}
   @checkindb = {}
   if File::exists?('checkindb.txt')
-    checkinfile = File.read('checkindb.txt') 
+    checkinfile = File.read('checkindb.txt')
     @checkindb = JSON.parse(checkinfile)
-  end  
-  
+  end
+
   # Establish a database of Spade's viewers
   # e.g. {viewer => {country => USA, strength => 12}}
   @viewerdb = {}
   if File::exists?('viewerdb.txt')
-    viewerfile = File.read('viewerdb.txt') 
+    viewerfile = File.read('viewerdb.txt')
     @viewerdb = JSON.parse(viewerfile)
   end
-  
-  # Keeps track of wins / losses & maybe other stats eventually. 
+
+  # Keeps track of wins / losses & maybe other stats eventually.
   # e.g. {wincount => 5, losscount => 20, 298273429834 => win, 2094203498234 => loss}
   @gamesdb = {}
   if File::exists?('gamesdb.txt')
-    gamesfile = File.read('gamesdb.txt') 
+    gamesfile = File.read('gamesdb.txt')
     @gamesdb = JSON.parse(gamesfile)
-  end  
-  
+  end
+
   # Track bets made. Resets every time bets are tallied.
   @betsdb = {}
-  
+
   # Toggle whether or not bets are allowed
-  @betsopen = FALSE 
-  
+  @betsopen = FALSE
+
   # Set initial uptime
   @stream_start_time = "none"
-  
+
 end
->>>>>>> upstream/master
 
 ############################################################################
 #
@@ -87,7 +85,7 @@ end
 #
 
 helpers do
-  
+
   # An expensive way to pretend like I have a daemon
   # check for latent processes and execute them
   def fake_daemon
@@ -148,11 +146,11 @@ helpers do
     end
     return points_check_result
   end
-  
+
   def pretty_uptime
     if @stream_start_time == "none"
       return 0
-    else 
+    else
       uptime = Time.now.utc.to_i - @stream_start_time.to_i
       if uptime < 60
         return "#{uptime} seconds"
@@ -170,7 +168,7 @@ helpers do
       end
     end
   end
-  
+
   def user_is_an_admin?(user)
     if @admins_array.include?(user)
       return true
@@ -210,11 +208,7 @@ end
 #
 
 on :channel, /^!changelog/i do
-<<<<<<< HEAD
-  msg channel, "v0.5: Bets now toggle off automatically. Added !uptime. Fixed bug in !give and merged Etheco's code (thanks Etheco!)"
-=======
   msg channel, "v0.6: Bets auto toggle now works. Added bot admins array. "
->>>>>>> upstream/master
 end
 
 on :channel, /^!beard/i do
@@ -230,37 +224,9 @@ on :channel, /^!welcome/i do
   fake_daemon
 end
 
-<<<<<<< HEAD
-on :channel, /^!startstream/i do
-  if nick == "watchspade"
-    @stream_start_time = Time.now.utc
-    msg channel, "Stream started."
-  end
-end
 
-on :channel, /^!endstream/i do
-  if nick == "watchspade"
-    @stream_start_time = "none"
-    msg channel, "Stream ended."
-  end
-end
-
-on :channel, /^!uptime/i do
-  @uptime_for_display = pretty_uptime
-  if @uptime_for_display != 0
-    msg channel, "#{@botmaster} has been streaming for #{@uptime_for_display}."
-  else
-    msg channel, "Whoops, #{@botmaster} forgot to start the timer! Starting it now..."
-    @stream_start_time = Time.now.utc
-  end
-end
-
-on :channel, /^!debug/i do
-  if nick == "watchspade"
-=======
 on :channel, /^!debug/i do
   if user_is_an_admin?(nick)
->>>>>>> upstream/master
     msg channel, "#{@stream_start_time}"
   end
 end
@@ -268,6 +234,11 @@ end
 on :channel, /^!getpoints/i do
   msg channel, "You can get #{@botmaster} Points by checking in (!checkin), donating, tweeting (!tweet), & winning bets (!bet for usage). Or you can be given points (!give)."
 end
+
+on :channel, /^!buffering/i do
+  msg channel, "Possibly try the external stream program, http://tards.net/ this has helped a few reduce buffering issues."
+end
+
 
 on :channel, /^!minispade/i do
   msg channel, "Spade has a just-about two year old son: minispade."
@@ -286,11 +257,7 @@ on :channel, /^!spade$/i do
 end
 
 on :channel, /^!spadeout/i do
-<<<<<<< HEAD
-  if nick == "watchspade"
-=======
   if user_is_an_admin?(nick)
->>>>>>> upstream/master
     @stream_start_time = "none"
   end
   msg channel, "Spaaaaaaaaade out."
@@ -496,11 +463,7 @@ on :channel, /^!bet (.*) (.*)/i do |first, last|
 end
 
 on :channel, /^!reportgame (.*)/i do |first|
-<<<<<<< HEAD
-  if nick == "watchspade"
-=======
   if user_is_an_admin?(nick)
->>>>>>> upstream/master
     total_won = 0
     winner_count = 0
     if first.downcase == "win"
@@ -565,11 +528,7 @@ on :channel, /^!reportgame (.*)/i do |first|
 end
 
 on :channel, /^!togglebets/i do
-<<<<<<< HEAD
-  if nick == "watchspade"
-=======
   if user_is_an_admin?(nick)
->>>>>>> upstream/master
     if @betsopen == FALSE
       @betsopen = TRUE
       @betstimer = Time.now.utc
@@ -591,11 +550,7 @@ end
 on :channel, /^!give (.*) (.*)/i do |first, last|
   person = first.downcase
   points = last.to_i
-<<<<<<< HEAD
-  if nick == "watchspade"
-=======
   if user_is_an_admin?(nick)
->>>>>>> upstream/master
     give_points(person, points)
     msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
   else
@@ -607,11 +562,7 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
       else
         msg channel, "I'm sorry #{nick}, you don't have enough #{@botmaster} Points!"
       end
-<<<<<<< HEAD
     else
-=======
-    else 
->>>>>>> upstream/master
       msg channel, "You can only give points to someone who has checked in at least once!"
     end
   end
@@ -625,11 +576,7 @@ end
 # Method for Spade to take points from naughty viewers
 # !take user points
 on :channel, /^!take (.*) (.*)/i do |first, last|
-<<<<<<< HEAD
-  if nick == "watchspade"
-=======
   if user_is_an_admin?(nick)
->>>>>>> upstream/master
     person = first.downcase
     points = last.to_i
     take_points(person, points)
@@ -665,11 +612,7 @@ on :channel, /^!checkin/i do
 end
 
 on :channel, /^!savedata/i do
-<<<<<<< HEAD
-  if nick == "watchspade"
-=======
   if user_is_an_admin?(nick)
->>>>>>> upstream/master
     save_data
   end
 end
@@ -702,11 +645,7 @@ end
 # The Spade Points Store
 #
 #
-<<<<<<< HEAD
 # This must eventually be re-written as a loop somehow...
-=======
-# This must eventually be re-written as a loop somehow... 
->>>>>>> upstream/master
 
 on :channel, /^!purchase (.*)/i do |protopurchase|
   purchase = protopurchase.downcase
@@ -773,4 +712,3 @@ end
 # old changelog:
 # v0.3: Removed points fee on !give. Added !commands command. Can bet on tie. Added !top. Added Viewer DB !lookup & !update
 # v0.5: Bets now toggle off automatically. Added !uptime. Fixed bug in !give and merged Etheco's code (thanks Etheco!)
-
