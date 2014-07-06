@@ -16,14 +16,28 @@ require "./botconfig"
 
 require './botspade_module'
 
-$users = {}
+
 
 on :connect do  # initializations
   join @botchan
 
+  # Lets open up Sqlite3 Database
+  @db = SQLite3::Database.new "botspade.db"
+
+  # Initial Tables - points / checkin / viewers / games / bets
+  # We will generate a custom user table so we have a relational ID for other tables.
+  @db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT)"
+  @db.execute "CREATE UNIQUE INDEX IF NOT EXISTS username ON users (username)"
+
+  # Each checkin will have its own row, With related ID from users table and timestamp of when.
+  @db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"
+  # Change win (1) / lose (2) / tie (3) to INTs for database optimisation.
+  @db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
+
   # Keeps track of a user's points. DB is persistent.
   # e.g. {watchspade => 34}
   @pointsdb = {}
+  @users = {}
   if File::exists?('pointsdb.txt')
     pointsfile = File.read('pointsdb.txt')
     @pointsdb = JSON.parse(pointsfile)
@@ -71,13 +85,13 @@ end
 
 helpers do
   def user_join
-    if $users.key?(nick)
+    if @users.key?(nick)
       # User is already stored.
 
     else
       # Lets grab the user or create and store it.
       user = db_user_generate(nick)
-      $users[nick] = user
+      @users[nick] = user
     end
   end
 
@@ -102,21 +116,21 @@ helpers do
   def take_points(nick, points)
     # New Fancy Way
     user_join()
-    $users[nick][1] = $users[nick][1] - points
-    db_checkins_save($users[nick])
+    @users[nick]['points'] = @users[nick]['points'] - points
+    db_checkins_save(@users[nick][''], @users[nick]['points'])
   end
 
   def give_points(nick, points)
     # New Fancy Way
     user_join()
-    $users[nick][1] = $users[nick][1] + points
-    db_checkins_save($users[nick])
+    @users[nick]['points'] = @users[nick]['points'] + points
+    db_checkins_save(@users[nick]['id'], @users[nick]['points'])
   end
 
   def person_has_enough_points(nick, points_required)
     # New Fancy Way
     user_join()
-    if $users[nick][1] < points_required
+    if @users[nick]['points'] < points_required
       return FALSE
     else
       return TRUE
@@ -152,29 +166,6 @@ helpers do
       return false
     end
   end
-
-  def pretty_uptime
-    if @stream_start_time == "none"
-      return 0
-    else
-      uptime = Time.now.utc.to_i - @stream_start_time.to_i
-      if uptime < 60
-        return "#{uptime} seconds"
-      elsif uptime > 60 && uptime < 3600
-        uptime_in_minutes = uptime / 60
-        return "#{uptime_in_minutes} minutes"
-      elsif uptime > 3600 && uptime < 86400
-        uptime_in_hours = uptime / 3600
-        calc_remainder = uptime_in_hours.to_i * 3600
-        remainder = uptime - calc_remainder
-        remainder_in_minutes = remainder / 60
-        return "#{uptime_in_hours.to_i} hours and #{remainder_in_minutes} minutes"
-      else
-        return "#{uptime} seconds"
-      end
-    end
-  end
-
 end
 
 
@@ -614,9 +605,9 @@ end
 on :channel, /^!checkin/i do
   user_join()
 
-  if db_checkins_get($users[nick][0])
+  if db_checkins_get(@users[nick]['id'])
     give_points(nick, @checkin_points)
-    total_checkins = db_user_checkins_count($users[nick][0])
+    total_checkins = db_user_checkins_count(@users[nick]['id'])
     if total_checkins == 50
       msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
       give_points(nick, 50)
@@ -631,11 +622,11 @@ end
 on :channel, /^!points/i do
   user_join()
 
-  if $users[nick][1] > 0
-    userpoints = $users[nick][1].to_s
+  if @users[nick]['points'] > 0
+    userpoints = @users[nick]['points'].to_s
     msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
   else
-    msg channel, "Sorry, it doesn't look like you have any Spade Points!"
+    msg channel, "Sorry, it doesn't look like you have any #{@botmaster} Points!"
   end
   fake_daemon
 end
@@ -666,7 +657,7 @@ end
 
 on :channel, /^!statsme/i do
   user_join()
-  checkins = db_user_checkins_count($users[nick][0])
+  checkins = db_user_checkins_count(@users[nick]['id'])
   msg channel, "#{nick}: #{checkins} checkins!"
 end
 
