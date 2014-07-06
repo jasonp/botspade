@@ -84,7 +84,7 @@ end
 #
 
 helpers do
-  def user_join
+  def user_join (nick)
     if @users.key?(nick)
       # User is already stored.
 
@@ -115,21 +115,21 @@ helpers do
 
   def take_points(nick, points)
     # New Fancy Way
-    user_join()
+    user_join(nick)
     @users[nick]['points'] = @users[nick]['points'] - points
     db_checkins_save(@users[nick][''], @users[nick]['points'])
   end
 
   def give_points(nick, points)
     # New Fancy Way
-    user_join()
+    user_join(nick)
     @users[nick]['points'] = @users[nick]['points'] + points
     db_checkins_save(@users[nick]['id'], @users[nick]['points'])
   end
 
   def person_has_enough_points(nick, points_required)
     # New Fancy Way
-    user_join()
+    user_join(nick)
     if @users[nick]['points'] < points_required
       return FALSE
     else
@@ -481,6 +481,7 @@ end
 # !give user points
 
 on :channel, /^!give (.*) (.*)/i do |first, last|
+  user_join(nick)
   person = first.downcase
   points = last.to_i
   if user_is_an_admin?(nick)
@@ -603,7 +604,7 @@ end
 
 # The Rewrites for database on functions below.
 on :channel, /^!checkin/i do
-  user_join()
+  user_join(nick)
 
   if db_checkins_get(@users[nick]['id'])
     give_points(nick, @checkin_points)
@@ -620,7 +621,7 @@ on :channel, /^!checkin/i do
 end
 
 on :channel, /^!points/i do
-  user_join()
+  user_join(nick)
 
   if @users[nick]['points'] > 0
     userpoints = @users[nick]['points'].to_s
@@ -633,7 +634,7 @@ end
 
 
 on :channel, /^!leaderboard/i do
-  user_join()
+  user_join(nick)
   points = db_points(5)
   s = "Leaderboard: "
   points.each do |name, points|
@@ -644,7 +645,7 @@ on :channel, /^!leaderboard/i do
 end
 
 on :channel, /^!top/i do
-  user_join()
+  user_join(nick)
 
   checkins = db_checkins(5)
   s = "Top Viewers "
@@ -656,7 +657,7 @@ on :channel, /^!top/i do
 end
 
 on :channel, /^!statsme/i do
-  user_join()
+  user_join(nick)
   checkins = db_user_checkins_count(@users[nick]['id'])
   msg channel, "#{nick}: #{checkins} checkins!"
 end
