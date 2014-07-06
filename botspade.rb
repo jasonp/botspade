@@ -14,27 +14,12 @@ require 'sqlite3'
 
 require "./botconfig"
 
-require './botlite'
+require './botspade_module'
+
+$users = {}
 
 on :connect do  # initializations
   join @botchan
-
-  ############################################################################
-  # Sqllite3 Related setup
-
-  # Lets open up Sqlite3 Database
-  db = SQLite3::Database.new "botspade.db"
-
-  # Initial Tables - points / checkin / viewers / games / bets
-  # We will generate a custom user table so we have a relational ID for other tables.
-  db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT)"
-  db.execute "CREATE UNIQUE INDEX IF NOT EXISTS username ON users (username)"
-
-  # Each checkin will have its own row, With related ID from users table and timestamp of when.
-  db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"
-  # Change win (1) / lose (2) / tie (3) to INTs for database optimisation.
-  db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
-
 
   # Keeps track of a user's points. DB is persistent.
   # e.g. {watchspade => 34}
@@ -85,22 +70,21 @@ end
 #
 
 helpers do
+  def user_join
+    if $users.key?(nick)
+      # User is already stored.
 
-  # An expensive way to pretend like I have a daemon
-  # check for latent processes and execute them
-  def fake_daemon
-    if Time.now.utc.to_i > @betstimer.to_i + 300 && @betsopen == TRUE
-      @betsopen = FALSE
-      msg channel, "Bets are now closed. GL."
+    else
+      # Lets grab the user or create and store it.
+      user = db_user_generate(nick)
+      $users[nick] = user
     end
   end
 
   # An expensive way to pretend like I have a daemon
   # check for latent processes and execute them
   def fake_daemon
-    msg channel, Time.now.utc
-    msg channel, @betstimer
-    if Time.now.utc > @betstimer + 10 && @betsopen == TRUE #300
+    if Time.now.utc.to_i > @betstimer.to_i + 300 && @betsopen == TRUE
       @betsopen = FALSE
       msg channel, "Bets are now closed. GL."
     end
@@ -116,35 +100,27 @@ helpers do
   end
 
   def take_points(nick, points)
-    if @pointsdb.key?(nick)
-      @pointsdb[nick] = @pointsdb[nick] - points
-      save_data_silent
-    else
-      msg channel, "#{nick} does not have any Spade Points!"
-    end
+    # New Fancy Way
+    user_join()
+    $users[nick][1] = $users[nick][1] - points
+    db_checkins_save($users[nick])
   end
 
   def give_points(nick, points)
-    if @pointsdb.key?(nick)
-      @pointsdb[nick] = @pointsdb[nick] + points
-    else
-      @pointsdb[nick] = points
-    end
-    save_data_silent
+    # New Fancy Way
+    user_join()
+    $users[nick][1] = $users[nick][1] + points
+    db_checkins_save($users[nick])
   end
 
-  def person_has_enough_points(person, points_required)
-    if @pointsdb.key?(person)
-      points_available = @pointsdb[person]
-      if points_available < points_required
-        points_check_result = FALSE
-      else
-        points_check_result = TRUE
-      end
+  def person_has_enough_points(nick, points_required)
+    # New Fancy Way
+    user_join()
+    if $users[nick][1] < points_required
+      return FALSE
     else
-      points_check_result = FALSE
+      return TRUE
     end
-    return points_check_result
   end
 
   def pretty_uptime
@@ -206,6 +182,8 @@ end
 #
 # Basic Call & Response presets
 #
+
+
 
 on :channel, /^!changelog/i do
   msg channel, "v0.6: Bets auto toggle now works. Added bot admins array. "
@@ -273,42 +251,6 @@ end
 
 on :channel, /^!madeby/i do
   msg channel, "#{@botmaster} uses BotSpade. Get your own bot: http://github.com/jasonp/botspade"
-end
-
-on :channel, /^!points/i do
-  if @pointsdb.key?(nick)
-    userpoints = @pointsdb[nick].to_s
-    msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
-  else
-    msg channel, "Sorry, it doesn't look like you have any Spade Points!"
-  end
-  fake_daemon
-end
-
-on :channel, /^!leaderboard/i do
-  protoboard = @pointsdb.sort_by { |nick, points| points }
-  leaderboard = protoboard.reverse
-  msg channel, "Leaderboard: #{leaderboard[0]}, #{leaderboard[1]}, #{leaderboard[2]}, #{leaderboard[3]}, #{leaderboard[4]}"
-  fake_daemon
-end
-
-on :channel, /^!top/i do
-  topviewers = @checkindb.sort_by { |nick, checkin_array| checkin_array.count }
-  top = topviewers.reverse
-  string = []
-  5.times do |i|
-    amount = top[i.to_i][1].count
-    name = top[i.to_i][0]
-    string << name << amount
-  end
-  msg channel, "Top Viewers by !checkins: #{string[0]} (#{string[1]} checkins), #{string[2]} (#{string[3]} checkins), #{string[4]} (#{string[5]} checkins)"
-  fake_daemon
-end
-
-on :channel, /^!statsme/i do
-  user_record = @checkindb[nick] if @checkindb.key?(nick)
-  checkins = user_record.count
-  msg channel, "#{nick}: #{checkins} checkins!"
 end
 
 on :channel, /^!stats$/i do
@@ -583,34 +525,6 @@ on :channel, /^!take (.*) (.*)/i do |first, last|
   end
 end
 
-# Method to give points for chat activity
-# Check to see if points have been given yet today
-on :channel, /^!checkin/i do
-  if @checkindb.key?(nick)
-    checkin_array = @checkindb[nick]
-    last_checkin = checkin_array[-1]
-    allowed_checkin = Time.now.utc - 43200
-    if last_checkin > allowed_checkin.to_i
-      msg channel, "#{nick} checked in already, no #{@botmaster} Points given."
-    else
-      checkin_array << Time.now.utc.to_i
-      @checkindb[nick] = checkin_array
-      give_points(nick, 4)
-      msg channel, "Thanks for checking in, #{nick}! You have been given 4 #{@botmaster} Points!"
-      if checkin_array.count == 50
-        msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
-        give_points(nick, 50)
-      end
-    end
-  else
-    checkin_array = []
-    checkin_array << Time.now.utc.to_i
-    @checkindb[nick] = checkin_array
-    give_points(nick, 4)
-    msg channel, "Thanks for checking in, #{nick}! You have been given 4 #{@botmaster} Points!"
-  end
-end
-
 on :channel, /^!savedata/i do
   if user_is_an_admin?(nick)
     save_data
@@ -693,7 +607,68 @@ on :channel, /^!bdp/i do
   msg channel, "BDP stands for Big Dick Play. You can make #{@botmaster} attempt a BDP for 10 points with !purchase bdp"
 end
 
+# Method to give points for chat activity
+# Check to see if points have been given yet today
 
+# The Rewrites for database on functions below.
+on :channel, /^!checkin/i do
+  user_join()
+
+  if db_checkins_get($users[nick][0])
+    give_points(nick, @checkin_points)
+    total_checkins = db_user_checkins_count($users[nick][0])
+    if total_checkins == 50
+      msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
+      give_points(nick, 50)
+    else
+      msg channel, "Thanks for checking in, #{nick}! You have been given #{@checkin_points} #{@botmaster} Points! [#{total_checkins}]"
+    end
+  else
+    msg channel, "#{nick} checked in already, no #{@botmaster} Points given."
+  end
+end
+
+on :channel, /^!points/i do
+  user_join()
+
+  if $users[nick][1] > 0
+    userpoints = $users[nick][1].to_s
+    msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
+  else
+    msg channel, "Sorry, it doesn't look like you have any Spade Points!"
+  end
+  fake_daemon
+end
+
+
+on :channel, /^!leaderboard/i do
+  user_join()
+  points = db_points(5)
+  s = "Leaderboard: "
+  points.each do |name, points|
+    s << "#{name} (#{points} points), "
+  end
+  msg channel, s
+  fake_daemon
+end
+
+on :channel, /^!top/i do
+  user_join()
+
+  checkins = db_checkins(5)
+  s = "Top Viewers "
+  checkins.each do |name, amount|
+    s << "#{name} (#{amount} checkins), "
+  end
+  msg channel, s
+  fake_daemon
+end
+
+on :channel, /^!statsme/i do
+  user_join()
+  checkins = db_user_checkins_count($users[nick][0])
+  msg channel, "#{nick}: #{checkins} checkins!"
+end
 
 # build functions (helpers) for common DB calls, e.g. if_user_has_checkins(user), etc
 
