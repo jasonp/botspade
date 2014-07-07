@@ -84,16 +84,6 @@ end
 #
 
 helpers do
-  def user_join(nick)
-    if @users.key?(nick)
-      # User is already stored.
-
-    else
-      # Lets grab the user or create and store it.
-      user = db_user_generate(nick)
-      @users[nick] = user
-    end
-  end
 
   # An expensive way to pretend like I have a daemon
   # check for latent processes and execute them
@@ -113,24 +103,24 @@ helpers do
     fake_daemon
   end
 
-  def take_points(nick, points)
-    # New Fancy Way
-    user_join(nick)
-    @users[nick]['points'] = @users[nick]['points'] - points
-    db_checkins_save(@users[nick]['id'], @users[nick]['points'])
+  def take_points(person, points)
+    # Newer Fancy Way
+    user = get_user(person)
+    newpoints = user[2] - points
+    db_checkins_save(user[0], newpoints)
   end
 
-  def give_points(nick, points)
-    # New Fancy Way
-    user_join(nick)
-    @users[nick]['points'] = @users[nick]['points'] + points
-    db_checkins_save(@users[nick]['id'], @users[nick]['points'])
+  def give_points(person, points)
+    # Newer Fancy Way
+    user = get_user(person)
+    newpoints = user[2] + points
+    db_checkins_save(user[0], newpoints) 
   end
 
   def person_has_enough_points(nick, points_required)
-    # New Fancy Way
-    user_join(nick)
-    if @users[nick]['points'] < points_required
+    # Newer Fancy Way
+    user = get_user(nick)
+    if user[2] < points_required
       return FALSE
     else
       return TRUE
@@ -245,10 +235,11 @@ on :channel, /^!madeby/i do
 end
 
 on :channel, /^!stats$/i do
-  wincount = @gamesdb["wincount"]
-  losscount = @gamesdb["losscount"]
-  tiecount = @gamesdb["tiecount"]
-  wlratio = wincount.to_f / losscount.to_f
+  wins_losses = get_wins_losses
+  wincount = wins_losses[0]
+  losscount = wins_losses[1]
+  tiecount = wins_losses[2]
+  wlratio = wins_losses[3]
   msg channel, "#{@botmaster} has reported #{wincount} wins, #{losscount} losses, and #{tiecount} ties. W/L ratio: #{wlratio}"
 end
 
@@ -481,14 +472,13 @@ end
 # !give user points
 
 on :channel, /^!give (.*) (.*)/i do |first, last|
-  user_join(nick)
   person = first.downcase
   points = last.to_i
   if user_is_an_admin?(nick)
     give_points(person, points)
     msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
   else
-    if @checkindb.key?(nick)
+    if get_user(person)
       if person_has_enough_points(nick, points)
           give_points(person, points)
           take_points(nick, points)
@@ -605,27 +595,35 @@ end
 
 # The Rewrites for database on functions below.
 on :channel, /^!checkin/i do
-  user_join(nick)
-
-  if db_checkins_get(@users[nick]['id'])
-    give_points(nick, @checkin_points)
-    total_checkins = db_user_checkins_count(@users[nick]['id'])
-    if total_checkins == 50
-      msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
-      give_points(nick, 50)
+  user = get_user(nick)
+  if (user)
+    if db_checkins_get(user[0]) # hasn't checked in in past 12 hrs
+      give_points(nick, @checkin_points)
+      total_checkins = db_user_checkins_count(user[0])
+      if total_checkins == 50
+        msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
+        give_points(nick, 50)
+      else
+        msg channel, "Thanks for checking in, #{nick}! You have been given #{@checkin_points} #{@botmaster} Points! [Total check-ins: #{total_checkins}]"
+      end  
     else
-      msg channel, "Thanks for checking in, #{nick}! You have been given #{@checkin_points} #{@botmaster} Points! [Total check-ins: #{total_checkins}]"
-    end
+      msg channel, "#{nick} checked in already, no #{@botmaster} Points given."
+    end  
   else
-    msg channel, "#{nick} checked in already, no #{@botmaster} Points given."
+    if write_user(nick)
+      newuser = get_user(nick)
+      if db_checkins_get(newuser[0])
+        give_points(nick, @checkin_points)
+        msg channel, "Thanks for checking in, #{nick}! You have been given #{@checkin_points} #{@botmaster} Points! [Total check-ins: 1]"
+      end
+    end
   end
 end
 
 on :channel, /^!points/i do
-  user_join(nick)
-
-  if @users[nick]['points'] > 0
-    userpoints = @users[nick]['points'].to_s
+  user = get_user(nick)
+  if user[2] > 0
+    userpoints = user[2].to_s
     msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
   else
     msg channel, "Sorry, it doesn't look like you have any #{@botmaster} Points!"
@@ -635,7 +633,6 @@ end
 
 
 on :channel, /^!leaderboard/i do
-  user_join(nick)
   points = db_points(5)
   s = "Leaderboard: "
   points.each do |name, points|
@@ -646,8 +643,6 @@ on :channel, /^!leaderboard/i do
 end
 
 on :channel, /^!top/i do
-  user_join(nick)
-
   checkins = db_checkins(5)
   s = "Top Viewers: "
   checkins.each do |name, amount|
@@ -658,8 +653,8 @@ on :channel, /^!top/i do
 end
 
 on :channel, /^!statsme/i do
-  user_join(nick)
-  checkins = db_user_checkins_count(@users[nick]['id'])
+  user = get_user(nick)
+  checkins = db_user_checkins_count(user[0])
   msg channel, "#{nick}: #{checkins} checkins!"
 end
 
