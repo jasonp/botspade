@@ -649,7 +649,7 @@ on :channel, /^!top/i do
   user_join(nick)
 
   checkins = db_checkins(5)
-  s = "Top Viewers "
+  s = "Top Viewers: "
   checkins.each do |name, amount|
     s << "#{name} (#{amount} checkins), "
   end
