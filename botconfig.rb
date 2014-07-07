@@ -17,7 +17,7 @@ configure do |c|
   c.nick    = "botspade"
   c.server  = "irc.twitch.tv"
   c.port    = 6667
-  c.password = "oauth:cbr74bjxkfc5r24lqs0yph44fgbgam7" # Get yours here: http://twitchapps.com/tmi/
+  c.password = "" # Get yours here: http://twitchapps.com/tmi/
   c.verbose = true
 end
 
