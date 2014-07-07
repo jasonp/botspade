@@ -36,20 +36,20 @@ on :connect do  # initializations
 
   # Keeps track of a user's points. DB is persistent.
   # e.g. {watchspade => 34}
-  @pointsdb = {}
+  # @pointsdb = {}
   @users = {}
-  if File::exists?('pointsdb.txt')
-    pointsfile = File.read('pointsdb.txt')
-    @pointsdb = JSON.parse(pointsfile)
-  end
+  #if File::exists?('pointsdb.txt')
+  #  pointsfile = File.read('pointsdb.txt')
+  #  @pointsdb = JSON.parse(pointsfile)
+  #end
 
   # Track whether or not we've given points today already. DB is persistent.
   # e.g. {watchspade => [987239487234, 12398429837]}
-  @checkindb = {}
-  if File::exists?('checkindb.txt')
-    checkinfile = File.read('checkindb.txt')
-    @checkindb = JSON.parse(checkinfile)
-  end
+  #@checkindb = {}
+  #if File::exists?('checkindb.txt')
+  #  checkinfile = File.read('checkindb.txt')
+  #  @checkindb = JSON.parse(checkinfile)
+  #end
 
   # Establish a database of Spade's viewers
   # e.g. {viewer => {country => USA, strength => 12}}
@@ -84,7 +84,7 @@ end
 #
 
 helpers do
-  def user_join (nick)
+  def user_join(nick)
     if @users.key?(nick)
       # User is already stored.
 
@@ -117,7 +117,7 @@ helpers do
     # New Fancy Way
     user_join(nick)
     @users[nick]['points'] = @users[nick]['points'] - points
-    db_checkins_save(@users[nick][''], @users[nick]['points'])
+    db_checkins_save(@users[nick]['id'], @users[nick]['points'])
   end
 
   def give_points(nick, points)
@@ -177,7 +177,7 @@ end
 
 
 on :channel, /^!changelog/i do
-  msg channel, "v0.6: Bets auto toggle now works. Added bot admins array. "
+  msg channel, "v0.65: SQLite partially implemented. No fancy new tricks, though."
 end
 
 on :channel, /^!beard/i do
@@ -534,15 +534,16 @@ end
 
 on :channel, /^!referredby (.*)/i do |first|
   referrer = first.downcase
-  if @checkindb.key?(nick)
+  if db_user_checkins_count > 0
     msg channel, "Hmm, looks like you've checked in here before! Sorry, you only get to be new once!"
   else
-    checkin_array = []
-    checkin_array << Time.now.utc.to_i
-    @checkindb[nick] = checkin_array
-    give_points(nick, 14)
-    give_points(referrer, 10)
-    msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
+    if db_checkins_get(@users[nick]['id'])
+      give_points(nick, @checkin_points)
+      total_checkins = db_user_checkins_count(@users[nick]['id'])
+      give_points(nick, 14)
+      give_points(referrer, 10)
+      msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
+    end  
   end
 end
 
@@ -613,7 +614,7 @@ on :channel, /^!checkin/i do
       msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
       give_points(nick, 50)
     else
-      msg channel, "Thanks for checking in, #{nick}! You have been given #{@checkin_points} #{@botmaster} Points! [#{total_checkins}]"
+      msg channel, "Thanks for checking in, #{nick}! You have been given #{@checkin_points} #{@botmaster} Points! [Total check-ins: #{total_checkins}]"
     end
   else
     msg channel, "#{nick} checked in already, no #{@botmaster} Points given."

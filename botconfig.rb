@@ -33,6 +33,10 @@ helpers do
 
   # How many points should a user be given when they !checkin to your stream?
   @checkin_points = 4
+  
+  # What is your twitch username? This is the "channel" your bot needs to join. 
+  # The channel MUST begin with '#'
+  @botchan = "#watchspade"
 
   # Bot admins. Which users will be able to !togglebets, !savedata, and other admin-only commands?
   # follow the example below to add as many admins as you'd like to.
