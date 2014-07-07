@@ -14,67 +14,68 @@ require 'sqlite3'
 
 require "./botconfig"
 
+require './botspade_module'
+
+
+
 on :connect do  # initializations
-  join "#watchspade"
-  
-  ############################################################################
-  # Sqllite3 Related setup
+  join @botchan
 
   # Lets open up Sqlite3 Database
-  db = SQLite3::Database.new "botspade.db"
+  @db = SQLite3::Database.new "botspade.db"
 
   # Initial Tables - points / checkin / viewers / games / bets
   # We will generate a custom user table so we have a relational ID for other tables.
-  db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT)"
-  db.execute "CREATE UNIQUE INDEX IF NOT EXISTS username ON users (username)"
+  @db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT)"
+  @db.execute "CREATE UNIQUE INDEX IF NOT EXISTS username ON users (username)"
 
   # Each checkin will have its own row, With related ID from users table and timestamp of when.
-  db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"
+  @db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"
   # Change win (1) / lose (2) / tie (3) to INTs for database optimisation.
-  db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
-  
-  
-  # Keeps track of a user's points. DB is persistent. 
+  @db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
+
+  # Keeps track of a user's points. DB is persistent.
   # e.g. {watchspade => 34}
-  @pointsdb = {}
-  if File::exists?('pointsdb.txt')
-    pointsfile = File.read('pointsdb.txt') 
-    @pointsdb = JSON.parse(pointsfile)
-  end
-  
-  # Track whether or not we've given points today already. DB is persistent. 
+  # @pointsdb = {}
+  @users = {}
+  #if File::exists?('pointsdb.txt')
+  #  pointsfile = File.read('pointsdb.txt')
+  #  @pointsdb = JSON.parse(pointsfile)
+  #end
+
+  # Track whether or not we've given points today already. DB is persistent.
   # e.g. {watchspade => [987239487234, 12398429837]}
-  @checkindb = {}
-  if File::exists?('checkindb.txt')
-    checkinfile = File.read('checkindb.txt') 
-    @checkindb = JSON.parse(checkinfile)
-  end  
-  
+  #@checkindb = {}
+  #if File::exists?('checkindb.txt')
+  #  checkinfile = File.read('checkindb.txt')
+  #  @checkindb = JSON.parse(checkinfile)
+  #end
+
   # Establish a database of Spade's viewers
   # e.g. {viewer => {country => USA, strength => 12}}
   @viewerdb = {}
   if File::exists?('viewerdb.txt')
-    viewerfile = File.read('viewerdb.txt') 
+    viewerfile = File.read('viewerdb.txt')
     @viewerdb = JSON.parse(viewerfile)
   end
-  
-  # Keeps track of wins / losses & maybe other stats eventually. 
+
+  # Keeps track of wins / losses & maybe other stats eventually.
   # e.g. {wincount => 5, losscount => 20, 298273429834 => win, 2094203498234 => loss}
   @gamesdb = {}
   if File::exists?('gamesdb.txt')
-    gamesfile = File.read('gamesdb.txt') 
+    gamesfile = File.read('gamesdb.txt')
     @gamesdb = JSON.parse(gamesfile)
-  end  
-  
+  end
+
   # Track bets made. Resets every time bets are tallied.
   @betsdb = {}
-  
+
   # Toggle whether or not bets are allowed
-  @betsopen = FALSE 
-  
+  @betsopen = FALSE
+
   # Set initial uptime
   @stream_start_time = "none"
-  
+
 end
 
 ############################################################################
@@ -83,7 +84,7 @@ end
 #
 
 helpers do
-  
+
   # An expensive way to pretend like I have a daemon
   # check for latent processes and execute them
   def fake_daemon
@@ -102,42 +103,34 @@ helpers do
     fake_daemon
   end
 
-  def take_points(nick, points)
-    if @pointsdb.key?(nick)
-      @pointsdb[nick] = @pointsdb[nick] - points
-      save_data_silent
+  def take_points(person, points)
+    # Newer Fancy Way
+    user = get_user(person)
+    newpoints = user[2] - points
+    db_checkins_save(user[0], newpoints)
+  end
+
+  def give_points(person, points)
+    # Newer Fancy Way
+    user = get_user(person)
+    newpoints = user[2] + points
+    db_checkins_save(user[0], newpoints) 
+  end
+
+  def person_has_enough_points(nick, points_required)
+    # Newer Fancy Way
+    user = get_user(nick)
+    if user[2] < points_required
+      return FALSE
     else
-      msg channel, "#{nick} does not have any Spade Points!"
+      return TRUE
     end
   end
 
-  def give_points(nick, points)
-    if @pointsdb.key?(nick)
-      @pointsdb[nick] = @pointsdb[nick] + points
-    else
-      @pointsdb[nick] = points
-    end
-    save_data_silent
-  end
-
-  def person_has_enough_points(person, points_required)
-    if @pointsdb.key?(person)
-      points_available = @pointsdb[person]
-      if points_available < points_required
-        points_check_result = FALSE
-      else
-        points_check_result = TRUE
-      end
-    else
-      points_check_result = FALSE
-    end
-    return points_check_result
-  end
-  
   def pretty_uptime
     if @stream_start_time == "none"
       return 0
-    else 
+    else
       uptime = Time.now.utc.to_i - @stream_start_time.to_i
       if uptime < 60
         return "#{uptime} seconds"
@@ -155,7 +148,7 @@ helpers do
       end
     end
   end
-  
+
   def user_is_an_admin?(user)
     if @admins_array.include?(user)
       return true
@@ -163,7 +156,6 @@ helpers do
       return false
     end
   end
-
 end
 
 
@@ -172,8 +164,10 @@ end
 # Basic Call & Response presets
 #
 
+
+
 on :channel, /^!changelog/i do
-  msg channel, "v0.6: Bets auto toggle now works. Added bot admins array. "
+  msg channel, "v0.65: SQLite partially implemented. No fancy new tricks, though."
 end
 
 on :channel, /^!beard/i do
@@ -189,6 +183,7 @@ on :channel, /^!welcome/i do
   fake_daemon
 end
 
+
 on :channel, /^!debug/i do
   if user_is_an_admin?(nick)
     msg channel, "#{@stream_start_time}"
@@ -198,6 +193,11 @@ end
 on :channel, /^!getpoints/i do
   msg channel, "You can get #{@botmaster} Points by checking in (!checkin), donating, tweeting (!tweet), & winning bets (!bet for usage). Or you can be given points (!give)."
 end
+
+on :channel, /^!buffering/i do
+  msg channel, "Possibly try the external stream program, http://tards.net/ this has helped a few reduce buffering issues."
+end
+
 
 on :channel, /^!minispade/i do
   msg channel, "Spade has a just-about two year old son: minispade."
@@ -234,47 +234,12 @@ on :channel, /^!madeby/i do
   msg channel, "#{@botmaster} uses BotSpade. Get your own bot: http://github.com/jasonp/botspade"
 end
 
-on :channel, /^!points/i do
-  if @pointsdb.key?(nick)
-    userpoints = @pointsdb[nick].to_s
-    msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
-  else
-    msg channel, "Sorry, it doesn't look like you have any Spade Points!"
-  end
-  fake_daemon
-end
-
-on :channel, /^!leaderboard/i do
-  protoboard = @pointsdb.sort_by { |nick, points| points }
-  leaderboard = protoboard.reverse
-  msg channel, "Leaderboard: #{leaderboard[0]}, #{leaderboard[1]}, #{leaderboard[2]}, #{leaderboard[3]}, #{leaderboard[4]}"
-  fake_daemon
-end
-
-on :channel, /^!top/i do
-  topviewers = @checkindb.sort_by { |nick, checkin_array| checkin_array.count }
-  top = topviewers.reverse
-  string = []
-  5.times do |i|
-    amount = top[i.to_i][1].count
-    name = top[i.to_i][0]
-    string << name << amount
-  end
-  msg channel, "Top Viewers by !checkins: #{string[0]} (#{string[1]} checkins), #{string[2]} (#{string[3]} checkins), #{string[4]} (#{string[5]} checkins)"
-  fake_daemon
-end
-
-on :channel, /^!statsme/i do
-  user_record = @checkindb[nick] if @checkindb.key?(nick)
-  checkins = user_record.count
-  msg channel, "#{nick}: #{checkins} checkins!"
-end
-
 on :channel, /^!stats$/i do
-  wincount = @gamesdb["wincount"]
-  losscount = @gamesdb["losscount"]
-  tiecount = @gamesdb["tiecount"]
-  wlratio = wincount.to_f / losscount.to_f
+  wins_losses = get_wins_losses
+  wincount = wins_losses[0]
+  losscount = wins_losses[1]
+  tiecount = wins_losses[2]
+  wlratio = wins_losses[3]
   msg channel, "#{@botmaster} has reported #{wincount} wins, #{losscount} losses, and #{tiecount} ties. W/L ratio: #{wlratio}"
 end
 
@@ -513,7 +478,7 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
     give_points(person, points)
     msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
   else
-    if @checkindb.key?(nick)
+    if get_user(person)
       if person_has_enough_points(nick, points)
           give_points(person, points)
           take_points(nick, points)
@@ -521,7 +486,7 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
       else
         msg channel, "I'm sorry #{nick}, you don't have enough #{@botmaster} Points!"
       end
-    else 
+    else
       msg channel, "You can only give points to someone who has checked in at least once!"
     end
   end
@@ -542,34 +507,6 @@ on :channel, /^!take (.*) (.*)/i do |first, last|
   end
 end
 
-# Method to give points for chat activity
-# Check to see if points have been given yet today
-on :channel, /^!checkin/i do
-  if @checkindb.key?(nick)
-    checkin_array = @checkindb[nick]
-    last_checkin = checkin_array[-1]
-    allowed_checkin = Time.now.utc - 43200
-    if last_checkin > allowed_checkin.to_i
-      msg channel, "#{nick} checked in already, no #{@botmaster} Points given."
-    else
-      checkin_array << Time.now.utc.to_i
-      @checkindb[nick] = checkin_array
-      give_points(nick, 4)
-      msg channel, "Thanks for checking in, #{nick}! You have been given 4 #{@botmaster} Points!"
-      if checkin_array.count == 50
-        msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
-        give_points(nick, 50)
-      end
-    end
-  else
-    checkin_array = []
-    checkin_array << Time.now.utc.to_i
-    @checkindb[nick] = checkin_array
-    give_points(nick, 4)
-    msg channel, "Thanks for checking in, #{nick}! You have been given 4 #{@botmaster} Points!"
-  end
-end
-
 on :channel, /^!savedata/i do
   if user_is_an_admin?(nick)
     save_data
@@ -587,15 +524,16 @@ end
 
 on :channel, /^!referredby (.*)/i do |first|
   referrer = first.downcase
-  if @checkindb.key?(nick)
+  if db_user_checkins_count > 0
     msg channel, "Hmm, looks like you've checked in here before! Sorry, you only get to be new once!"
   else
-    checkin_array = []
-    checkin_array << Time.now.utc.to_i
-    @checkindb[nick] = checkin_array
-    give_points(nick, 14)
-    give_points(referrer, 10)
-    msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
+    if db_checkins_get(@users[nick]['id'])
+      give_points(nick, @checkin_points)
+      total_checkins = db_user_checkins_count(@users[nick]['id'])
+      give_points(nick, 14)
+      give_points(referrer, 10)
+      msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
+    end  
   end
 end
 
@@ -604,7 +542,7 @@ end
 # The Spade Points Store
 #
 #
-# This must eventually be re-written as a loop somehow... 
+# This must eventually be re-written as a loop somehow...
 
 on :channel, /^!purchase (.*)/i do |protopurchase|
   purchase = protopurchase.downcase
@@ -652,7 +590,73 @@ on :channel, /^!bdp/i do
   msg channel, "BDP stands for Big Dick Play. You can make #{@botmaster} attempt a BDP for 10 points with !purchase bdp"
 end
 
+# Method to give points for chat activity
+# Check to see if points have been given yet today
 
+# The Rewrites for database on functions below.
+on :channel, /^!checkin/i do
+  user = get_user(nick)
+  if (user)
+    if db_checkins_get(user[0]) # hasn't checked in in past 12 hrs
+      give_points(nick, @checkin_points)
+      total_checkins = db_user_checkins_count(user[0])
+      if total_checkins == 50
+        msg channel, "#{nick} this is your 50th check-in! You Rock (and get 50 points)"
+        give_points(nick, 50)
+      else
+        msg channel, "Thanks for checking in, #{nick}! You have been given #{@checkin_points} #{@botmaster} Points! [Total check-ins: #{total_checkins}]"
+      end  
+    else
+      msg channel, "#{nick} checked in already, no #{@botmaster} Points given."
+    end  
+  else
+    if write_user(nick)
+      newuser = get_user(nick)
+      if db_checkins_get(newuser[0])
+        give_points(nick, @checkin_points)
+        msg channel, "Thanks for checking in, #{nick}! You have been given #{@checkin_points} #{@botmaster} Points! [Total check-ins: 1]"
+      end
+    end
+  end
+end
+
+on :channel, /^!points/i do
+  user = get_user(nick)
+  if user[2] > 0
+    userpoints = user[2].to_s
+    msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
+  else
+    msg channel, "Sorry, it doesn't look like you have any #{@botmaster} Points!"
+  end
+  fake_daemon
+end
+
+
+on :channel, /^!leaderboard/i do
+  points = db_points(5)
+  s = "Leaderboard: "
+  points.each do |name, points|
+    s << "#{name} (#{points} points), "
+  end
+  msg channel, s
+  fake_daemon
+end
+
+on :channel, /^!top/i do
+  checkins = db_checkins(5)
+  s = "Top Viewers: "
+  checkins.each do |name, amount|
+    s << "#{name} (#{amount} checkins), "
+  end
+  msg channel, s
+  fake_daemon
+end
+
+on :channel, /^!statsme/i do
+  user = get_user(nick)
+  checkins = db_user_checkins_count(user[0])
+  msg channel, "#{nick}: #{checkins} checkins!"
+end
 
 # build functions (helpers) for common DB calls, e.g. if_user_has_checkins(user), etc
 
@@ -671,4 +675,3 @@ end
 # old changelog:
 # v0.3: Removed points fee on !give. Added !commands command. Can bet on tie. Added !top. Added Viewer DB !lookup & !update
 # v0.5: Bets now toggle off automatically. Added !uptime. Fixed bug in !give and merged Etheco's code (thanks Etheco!)
-

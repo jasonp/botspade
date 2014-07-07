@@ -8,9 +8,9 @@
 ###############
 #
 # Basic connection and configuration info. First, make a Twitch account for your bot.
-# Then set "c.nick" to your bot Twitch account's username. Mine is botspade. You'll need to 
+# Then set "c.nick" to your bot Twitch account's username. Mine is botspade. You'll need to
 # set "c.password" to the oauth string you can get at the link provided below (visit the page
-# while logged in to your bot's Twitch account). 
+# while logged in to your bot's Twitch account).
 #
 
 configure do |c|
@@ -23,22 +23,26 @@ end
 
 #############
 #
-# Whose bot is this? Let's set some customizeations. How many points should people get when 
+# Whose bot is this? Let's set some customizeations. How many points should people get when
 # they check in? What is your name, so that the bot customizes?
 
-helpers do 
-  
+helpers do
+
   # Name of the streamer. e.g. Spade, results in: "user has 57 Spade Points"
   @botmaster = "Spade"
-  
+
   # How many points should a user be given when they !checkin to your stream?
   @checkin_points = 4
   
+  # What is your twitch username? This is the "channel" your bot needs to join. 
+  # The channel MUST begin with '#'
+  @botchan = "#watchspade"
+
   # Bot admins. Which users will be able to !togglebets, !savedata, and other admin-only commands?
   # follow the example below to add as many admins as you'd like to.
   @admins_array = []
   @admins_array << "watchspade" # << "another_admin" << "another_one"
-  
+
 end
 
 #############
@@ -48,12 +52,12 @@ end
 #
 # on :channel, /^!testme/i do    <---- this is the command the user types in chat, e.g. !points
 #   msg channel, "Here's the info I want to put in response."   <--- Here is how the bot responds
-# end 
+# end
 #
 # To create custom commands, replace the "testme" with the command you want to make, e.g. "gaben"
 # Put the bot's response in the quotes. To make more commands, copy + pase a new block of code.
 #
-# GLHF. 
+# GLHF.
 
 
 on :channel, /^!replaceme/i do
