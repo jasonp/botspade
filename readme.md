@@ -1,4 +1,4 @@
-# BotSpade: A Customizeable Twitch.tv Chat Bot
+# BotSpade: A Customizable Twitch.tv Chat Bot
 
 Allow your viewers to bet with virtual points on your wins and losses, and other things.
 
@@ -72,7 +72,7 @@ to end your SSH session and your bot will still be running.
 
 ### Contributing
 
-If you'd like to help, I'd love it! Just fork the repository, and feel free to send pull requests and reach out to me about contributing. Please send pull requests to the "etheco" branch, as this is "head" development at the moment, and master is the "stable release."
+If you'd like to help, I'd love it! Just fork the repository, and feel free to send pull requests and reach out to me about contributing. Please send pull requests to the "head" branch, master is the "stable release."
 
 Big thanks to @Etheco for his contributions so far. 
 
