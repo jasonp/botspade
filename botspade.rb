@@ -120,10 +120,14 @@ helpers do
   def person_has_enough_points(nick, points_required)
     # Newer Fancy Way
     user = get_user(nick)
-    if user[2] < points_required
-      return FALSE
+    if (user)
+      if user[2] < points_required
+        return FALSE
+      else
+        return TRUE
+      end
     else
-      return TRUE
+      return FALSE
     end
   end
 
