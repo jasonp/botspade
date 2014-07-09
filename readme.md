@@ -78,7 +78,7 @@ You can exit (stop) the bot by typing:
 
 ### Contributing
 
-If you'd like to help, I'd love it! Just fork the repository, and feel free to send pull requests and reach out to me about contributing. Please send pull requests to the "head" branch, master is the "stable release."
+If you'd like to help, I'd love it! Just fork the repository, and feel free to send pull requests and reach out to me about contributing. Please send pull requests to the "risky" branch, master is the "stable release."
 
 Big thanks to @Etheco for his contributions so far. 
 
