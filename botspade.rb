@@ -106,15 +106,19 @@ helpers do
   def take_points(person, points)
     # Newer Fancy Way
     user = get_user(person)
-    newpoints = user[2] - points
-    db_checkins_save(user[0], newpoints)
+    if (user)
+      newpoints = user[2] - points
+      db_checkins_save(user[0], newpoints)
+    end
   end
 
   def give_points(person, points)
     # Newer Fancy Way
     user = get_user(person)
-    newpoints = user[2] + points
-    db_checkins_save(user[0], newpoints) 
+    if (user)
+      newpoints = user[2] + points
+      db_checkins_save(user[0], newpoints) 
+    end  
   end
 
   def person_has_enough_points(nick, points_required)
