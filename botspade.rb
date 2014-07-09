@@ -25,12 +25,13 @@ on :connect do  # initializations
   @db = SQLite3::Database.new "botspade.db"
 
   # Initial Tables - points / checkin / viewers / games / bets
+  #
   # We will generate a custom user table so we have a relational ID for other tables.
-  @db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT, profile TEXT)"
+  @db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT, profile TEXT, admin INT)"
   @db.execute "CREATE UNIQUE INDEX IF NOT EXISTS username ON users (username)"
   
   # migration assist - will remove eventually
-  # @db.execute "ALTER TABLE users ADD COLUMN profile TEXT;"
+  # @db.execute "ALTER TABLE users ADD COLUMN admin INT;"
 
   # Each checkin will have its own row, With related ID from users table and timestamp of when.
   @db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"

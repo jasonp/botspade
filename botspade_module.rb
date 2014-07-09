@@ -78,6 +78,18 @@ helpers do
   def db_checkins_save(user_id, points)
     @db.execute( "UPDATE users SET points = ? WHERE id = ?", [points, user_id] )
   end
+  
+  # Get & Set user profile info
+  #
+  
+  def db_set_profile(user_id, profile)
+    @db.execute( "UPDATE users SET profile = ? WHERE id = ?", [profile, user_id] )
+  end
+  
+  def db_get_profile(user_id)
+    profile = @db.execute( "SELECT profile FROM users WHERE id = ?", [user_id] )
+    return profile
+  end
 
   def db_checkins(limit)
     checkins = @db.execute( "SELECT u.username, COUNT(1) as count FROM checkins AS c JOIN users AS u ON u.id = c.user_id GROUP BY user_id ORDER BY count DESC LIMIT ?", [limit] )
