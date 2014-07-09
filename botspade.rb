@@ -483,8 +483,12 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
   person = first.downcase
   points = last.to_i
   if user_is_an_admin?(nick)
-    give_points(person, points)
-    msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
+    if get_user(person)
+      give_points(person, points)
+      msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
+    else
+      msg channel, "You can only give points to someone who has checked in at least once!"
+    end
   else
     if get_user(person)
       if person_has_enough_points(nick, points)
