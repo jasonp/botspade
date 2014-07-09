@@ -24,7 +24,7 @@ This is a work in progress, including the documentation.
 
 ## Instructions
 
-BotSpade runs in Ruby 2.1.0 on top of the Isaac IRC chat bot gem. It's best to run it on a server like the ones you can get for $5/month from [Digital Ocean](http://digitalocean.com), but you can also run it on your mac or Linux based system. You can run it on a PC, too, but it's a pain in the ass. 
+BotSpade runs in Ruby 2.1.0 on top of the Isaac IRC chat bot gem. It's best to run it on a server like the ones you can get for $5/month from [Digital Ocean](http://digitalocean.com), but you can also run it on your mac or Linux based system. You can run it on a PC, too, but I don't know the steps for that and we'll have to add that later. 
 
 On your server, I recommend using [RVM](http://rvm.io). To do this you will need to SSH in to your server, or on a Mac you need to open Terminal. Ultimately, I'll explain that here, but for now: Google. 
 
@@ -68,7 +68,13 @@ Now you can type
 
 	exit
 
-to end your SSH session and your bot will still be running. 
+to end your SSH session and your bot will still be running. To get back to your "screen" later, SSH back in to the server and type:
+
+	screen -r
+	
+You can exit (stop) the bot by typing:
+
+	ctrl+c
 
 ### Contributing
 

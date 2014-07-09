@@ -34,6 +34,10 @@ helpers do
   # How many points should a user be given when they !checkin to your stream?
   @checkin_points = 4
   
+  # How long should bets remain active before auto-closing? Default is 5 minutes.
+  # NOT IMPLEMENTED YET
+  @bets_auto_close_in = 5 # minutes
+  
   # What is your twitch username? This is the "channel" your bot needs to join. 
   # The channel MUST begin with '#'
   @botchan = "#watchspade"
