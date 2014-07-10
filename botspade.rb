@@ -37,7 +37,7 @@ on :connect do  # initializations
   @db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
 
   # Create a table for custom user-generated call and response.
-  @db.execute "CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, command TEXT, response TEXT, timestamp BIGINT)"
+  # @db.execute "CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, command TEXT, response TEXT, timestamp BIGINT)"
 
   # Establish a database of Spade's viewers
   # e.g. {viewer => {country => USA, strength => 12}}
