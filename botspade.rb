@@ -2,18 +2,16 @@
 #
 #   BotSpade
 #
-#   Copyright (c) 2014 by Jason Preston
+#   Copyright (c) 2014 by Jason Preston under MIT License
 #   A Twitch Chat Bot
-#   Version 0.4 - 6/26/2014
+#   Version 0.7 - 7/08/2014
 #
 #   Feel free to use for your own nefarious purposes
 
 require 'isaac'
 require 'json'
 require 'sqlite3'
-
 require "./botconfig"
-
 require './botspade_module'
 
 
@@ -165,7 +163,7 @@ end
 
 
 on :channel, /^!changelog/i do
-  msg channel, "v0.65: SQLite partially implemented. No fancy new tricks, though."
+  msg channel, "v0.7: SQLite implemented. !bet checks for input. !update, !lookup, !remove working. Fixed db crashes."
 end
 
 on :channel, /^!beard/i do
@@ -276,45 +274,70 @@ end
 # Viewer DB
 #
 
-on :channel, /^!update (.*) (.*) (.*)/i do |first, second, last|
-  person = first.downcase
-  attribute = second.downcase
-  value = last.downcase
-  if person == nick
-    if @viewerdb.key?(person)
-      person_hash = @viewerdb[person]
+on :channel, /^!update (.*) (.*)/i do |first, second|
+  attribute = first.downcase
+  value = second.downcase
+  user = get_user(nick)
+  if (user)
+    person_hash = db_get_profile(user[0])
+    if (person_hash)
       person_hash[attribute] = value
-      @viewerdb[person] = person_hash
-      msg channel, "#{attribute} updated for #{nick}"
+      if db_set_profile(user[0], person_hash)
+        msg channel, "#{attribute} updated for #{nick}"
+      end
     else
       person_hash = {}
       person_hash[attribute] = value
-      @viewerdb[person] = person_hash
-      msg channel, "#{attribute} updated for #{nick}"
+      if db_set_profile(user[0], person_hash)
+        msg channel, "#{attribute} updated for #{nick}"
+      end
     end
-    save_data_silent
+  else
+    if write_user(nick)
+      newuser = get_user(nick)
+      person_hash = {}
+      person_hash[attribute] = value
+      if db_set_profile(newuser[0], person_hash)
+        msg channel, "#{attribute} updated for #{nick}"
+      end
+    end
   end
+
 end
 
 on :channel, /^!update$/i do
-  msg channel, "Add info to your file in the Viewer db. Usage: !update [username] [attribute] [value], e.g. !update watchspade country USA"
+  msg channel, "Add info to your file in the Viewer db. Usage: !update [attribute] [value], e.g. !update country USA"
+end
+
+on :channel, /^!dump$/i do
+  user = get_user(nick)
+  db_get_profile(user[0])
+  msg channel, "Dumped"
 end
 
 on :channel, /^!lookup (.*) (.*)/i do |first, last|
   person = first.downcase
   attribute = last.downcase
-  if @viewerdb.key?(person)
+  user = get_user(person)
+  if (user)
+    person_hash = db_get_profile(user[0])
     if attribute == "index"
-      person_hash = @viewerdb[person]
-      person_array = person_hash.keys
-      msg channel, "#{person}: #{person_array}"
-    else
-      person_hash = @viewerdb[person]
+      if (person_hash)
+        person_array = person_hash.keys
+        msg channel, "#{person}: #{person_array}"
+      else
+        msg channel, "#{person}: Empty profile!"
+      end
+    else 
       lookup_value = person_hash[attribute]
-      msg channel, "#{person}: #{lookup_value}"
+      if (lookup_value)
+        msg channel, "#{person}: #{lookup_value}"
+      else
+        msg channel, "Sorry, nothing in the viewer database for that!"
+      end
     end
   else
-    msg channel, "Sorry, nothing in the viewer database for that!"
+    msg channel, "Sorry, nothing in the viewer database for that!"  
   end
 end
 
@@ -322,24 +345,24 @@ on :channel, /^!lookup$/i do
   msg channel, "Lookup other viewers. Usage: !lookup [username] [attribute]. You can also do !lookup [username] index to see what attributes are available."
 end
 
-on :channel, /^!remove (.*) (.*)/i do |first, second|
-  person = first.downcase
-  attribute = second.downcase
-  if person == nick
-    if @viewerdb.key?(person)
-      person_hash = @viewerdb[person]
-      person_hash.delete(attribute)
-      @viewerdb[person] = person_hash
-      msg channel, "#{attribute} removed for #{nick}"
-    else
-      msg channle, "#{nick}: I don't see anything to remove!"
+on :channel, /^!remove (.*)/i do |first|
+  attribute = first.downcase
+  user = get_user(nick)  
+  if (user)
+    person_hash = db_get_profile(user[0])
+    if (person_hash)
+      if person_hash.delete(attribute)
+        db_set_profile(user[0], person_hash)
+        msg channel, "#{attribute} removed for #{nick}"
+      else
+        msg channel, "I don't see anything to remove!"
+      end
     end
-    save_data_silent
   end
 end
 
 on :channel, /^!remove$/i do
-  msg channel, "Remove info from your file in the Viewer db. Usage: !remove [username] [attribute], e.g. !remove watchspade country"
+  msg channel, "Remove info from your profile. Usage: !remove [attribute], e.g. !remove country"
 end
 
 
@@ -364,19 +387,23 @@ on :channel, /^!bet (.*) (.*)/i do |first, last|
   win_loss = last.downcase
   if @betsopen == TRUE
     if first.to_f < 1
-      msg channel, "Sorry, you can't bet in fractions/phrases... whole numbers only!"
+      msg channel, "Sorry, you can't bet in fractions/phrases... whole numbers only!"    
     else
-      if person_has_enough_points(nick, bet_amount)
-        if @betsdb[nick]
-          msg channel, "#{nick}: Bet Refused, You have already bet"
+      if last == "win" || last == "loss" || last == "tie"
+        if person_has_enough_points(nick, bet_amount)
+          if @betsdb[nick]
+            msg channel, "#{nick}: Bet Refused, You have already bet"
+          else
+            @betsdb[nick] = [bet_amount, win_loss]
+            take_points(nick, bet_amount)
+            msg channel, "#{nick}: Bet recorded."
+          end
         else
-          @betsdb[nick] = [bet_amount, win_loss]
-          take_points(nick, bet_amount)
-          msg channel, "#{nick}: Bet recorded."
+          msg channel, "Whoops, #{nick} it looks like you don't have enough points!"
         end
       else
-        msg channel, "Whoops, #{nick} it looks like you don't have enough points!"
-      end
+        msg channel, "You can only bet for: win, loss, tie. Check spelling!"
+      end #check for not win/loss/tie  
     end
   else
     msg channel, "Sorry, bets aren't open right now."
@@ -423,7 +450,6 @@ on :channel, /^!reportgame (.*)/i do |first|
           give_points(bettor, winnings)
         end
       end
-      save_data_silent
     elsif first.downcase == "tie"
       @gamesdb[Time.now.utc.to_s] = "tie"
       if @gamesdb["tiecount"]
@@ -441,7 +467,6 @@ on :channel, /^!reportgame (.*)/i do |first|
           give_points(bettor, winnings)
         end
       end
-      save_data_silent
     end
     @betsdb = {}
     save_data_silent
@@ -624,12 +649,22 @@ end
 
 on :channel, /^!points/i do
   user = get_user(nick)
-  if user[2] > 0
-    userpoints = user[2].to_s
-    msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
+  if (user)
+    if user[2] > 0
+      userpoints = user[2].to_s
+      msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
+    else
+      msg channel, "Sorry, it doesn't look like you have any #{@botmaster} Points!"
+    end
   else
-    msg channel, "Sorry, it doesn't look like you have any #{@botmaster} Points!"
-  end
+    if write_user(nick)
+      newuser = get_user(nick)
+      if db_checkins_get(newuser[0])
+        give_points(nick, @checkin_points)
+        msg channel, "#{nick}: Welcome! You have been checked-in and given #{@checkin_points} #{@botmaster} Points! [Total check-ins: 1]"
+      end
+    end
+  end  
   fake_daemon
 end
 
@@ -656,8 +691,10 @@ end
 
 on :channel, /^!statsme/i do
   user = get_user(nick)
-  checkins = db_user_checkins_count(user[0])
-  msg channel, "#{nick}: #{checkins} checkins!"
+  if (user)
+    checkins = db_user_checkins_count(user[0])
+    msg channel, "#{nick}: #{checkins} checkins!"
+  end
 end
 
 # build functions (helpers) for common DB calls, e.g. if_user_has_checkins(user), etc

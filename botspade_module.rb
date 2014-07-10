@@ -34,7 +34,7 @@ helpers do
   #
   # GET USER function
   # result is an array: user[0] = id, user[1] = username, user[2] = points, 
-  # user[3] = first_seen, user[4] = last_seen
+  # user[3] = first_seen, user[4] = last_seen, user[5] = profile, user[6] = admin
   #
   def get_user(protoname)
     username = protoname.downcase
@@ -82,13 +82,21 @@ helpers do
   # Get & Set user profile info
   #
   
-  def db_set_profile(user_id, profile)
-    @db.execute( "UPDATE users SET profile = ? WHERE id = ?", [profile, user_id] )
+  def db_set_profile(user_id, protoprofile)
+    profile = JSON.generate(protoprofile)
+    return TRUE if @db.execute( "UPDATE users SET profile = ? WHERE id = ?", [profile, user_id] )
   end
   
   def db_get_profile(user_id)
     profile = @db.execute( "SELECT profile FROM users WHERE id = ?", [user_id] )
-    return profile
+    puts "Profile: #{profile[0]}"
+    if (profile[0][0]) && profile[0][0] != ""
+      result = JSON.parse(profile[0][0])
+      puts "hash: #{result}"
+      return result
+    else
+      return nil
+    end
   end
 
   def db_checkins(limit)
