@@ -416,12 +416,7 @@ on :channel, /^!reportgame (.*)/i do |first|
     total_won = 0
     winner_count = 0
     if first.downcase == "win"
-      @gamesdb[Time.now.utc.to_s] = "win"
-      if @gamesdb["wincount"]
-        @gamesdb["wincount"] = @gamesdb["wincount"] + 1
-      else
-        @gamesdb["wincount"] = 1
-      end
+      db_set_game(1)
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
@@ -432,14 +427,8 @@ on :channel, /^!reportgame (.*)/i do |first|
           give_points(bettor, winnings)
         end
       end
-      save_data_silent
     elsif first.downcase == "loss"
-      @gamesdb[Time.now.utc.to_s] = "loss"
-      if @gamesdb["losscount"]
-        @gamesdb["losscount"] = @gamesdb["losscount"] + 1
-      else
-        @gamesdb["losscount"] = 1
-      end
+      db_set_game(2)
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
@@ -451,12 +440,7 @@ on :channel, /^!reportgame (.*)/i do |first|
         end
       end
     elsif first.downcase == "tie"
-      @gamesdb[Time.now.utc.to_s] = "tie"
-      if @gamesdb["tiecount"]
-        @gamesdb["tiecount"] = @gamesdb["tiecount"] + 1
-      else
-        @gamesdb["tiecount"] = 1
-      end
+      db_set_game(3)
       @betsdb.keys.each do |bettor|
         bet_amount = @betsdb[bettor][0]
         win_loss = @betsdb[bettor][1]
@@ -469,7 +453,6 @@ on :channel, /^!reportgame (.*)/i do |first|
       end
     end
     @betsdb = {}
-    save_data_silent
     msg channel, "Bets tallied. #{total_won.to_s} #{@botmaster} Points won by #{winner_count.to_s} gambler(s)."
   end
 end

@@ -63,6 +63,9 @@ helpers do
     return wins_losses
   end
 
+  def db_set_game(status)
+    return true if @db.execute( "INSERT INTO games ( status, timestamp ) VALUES ( ?, ? )", [status, Time.now.utc.to_i])
+  end
 
   def db_checkins_get(user_id)
     checkin = @db.execute( "SELECT timestamp FROM checkins WHERE user_id = ? ORDER BY timestamp DESC LIMIT 1", [user_id] ).first
