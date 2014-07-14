@@ -329,8 +329,8 @@ on :channel, /^!lookup (.*) (.*)/i do |first, last|
         msg channel, "#{person}: Empty profile!"
       end
     else 
-      lookup_value = person_hash[attribute]
-      if (lookup_value)
+      if (person_hash[attribute])
+        lookup_value = person_hash[attribute]
         msg channel, "#{person}: #{lookup_value}"
       else
         msg channel, "Sorry, nothing in the viewer database for that!"
