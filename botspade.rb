@@ -188,13 +188,6 @@ on :channel, /^!welcome/i do
   fake_daemon
 end
 
-
-on :channel, /^!debug/i do
-  if user_is_an_admin?(nick)
-    msg channel, "#{@stream_start_time}"
-  end
-end
-
 on :channel, /^!getpoints/i do
   msg channel, "You can get #{@botmaster} Points by checking in (!checkin), donating, tweeting (!tweet), & winning bets (!bet for usage). Or you can be given points (!give)."
 end
@@ -461,47 +454,6 @@ on :channel, /^!reportgame (.*)/i do |first|
         end # open bets loop
       end # if open_bets
     end # if report
-    
-
-#    if first.downcase == "win"
-#      db_set_game(1)
-#      @betsdb.keys.each do |bettor|
-#        bet_amount = @betsdb[bettor][0]
-#        win_loss = @betsdb[bettor][1]
-#        if win_loss == "win"
-#          winnings = bet_amount * 2
-#          total_won = total_won + winnings
-#          winner_count = winner_count + 1
-#          give_points(bettor, winnings)
-#        end
-#      end
-#    elsif first.downcase == "loss"
-#      db_set_game(2)
-#      @betsdb.keys.each do |bettor|
-#        bet_amount = @betsdb[bettor][0]
-#        win_loss = @betsdb[bettor][1]
-#        if win_loss == "loss"
-#          winnings = bet_amount * 2
-#          total_won = total_won + winnings
-#          winner_count = winner_count + 1
-#          give_points(bettor, winnings)
-#        end
-#      end
-#    elsif first.downcase == "tie"
-#      db_set_game(3)
-#      @betsdb.keys.each do |bettor|
-#        bet_amount = @betsdb[bettor][0]
-#        win_loss = @betsdb[bettor][1]
-#        if win_loss == "tie"
-#          winnings = bet_amount * 2
-#          total_won = total_won + winnings
-#          winner_count = winner_count + 1
-#          give_points(bettor, winnings)
-#        end
-#      end
-#    end
-#    @betsdb = {}
-
 
     msg channel, "Bets tallied. #{total_won.to_s} #{@botmaster} Points won and #{total_lost.to_s} #{@botmaster} Points lost by #{number_of_bettors} gambler(s)."
   end
@@ -584,15 +536,18 @@ end
 
 on :channel, /^!referredby (.*)/i do |first|
   referrer = first.downcase
-  if db_user_checkins_count > 0
-    msg channel, "Hmm, looks like you've checked in here before! Sorry, you only get to be new once!"
+  user = get_user(nick)
+  if (user)
+     msg channel, "Hmm, looks like you've checked in here before! Sorry, you only get to be new once!"
   else
-    if db_checkins_get(@users[nick]['id'])
-      give_points(nick, @checkin_points)
-      total_checkins = db_user_checkins_count(@users[nick]['id'])
-      give_points(nick, 14)
-      give_points(referrer, 10)
-      msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
+    if db_user_generate(nick)
+      newuser = get_user(nick)
+      if db_checkins_get(newuser[0])
+        total_checkins = db_user_checkins_count(user[0])
+        give_points(nick, 14)
+        give_points(referrer, 10)
+        msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
+      end
     end  
   end
 end
@@ -726,7 +681,16 @@ on :channel, /^!statsme/i do
   user = get_user(nick)
   if (user)
     checkins = db_user_checkins_count(user[0])
-    msg channel, "#{nick}: #{checkins} checkins!"
+    correct_bets = 0
+    past_bets = db_get_all_bets_from_user(user[0])
+    past_bets.each do |past_bet|
+      if past_bet[4] == 1
+        correct_bets = correct_bets + 1
+      end
+    end
+    ratio = correct_bets.to_f / past_bets.count.to_f
+    incorrect_bets = past_bets.count - correct_bets
+    msg channel, "#{nick}: #{checkins} checkins! Winning bets ratio: #{ratio} with #{correct_bets} correct bets and #{incorrect_bets} incorrect bets."
   end
 end
 

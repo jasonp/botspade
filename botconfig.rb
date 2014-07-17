@@ -13,6 +13,9 @@
 # while logged in to your bot's Twitch account).
 #
 
+#
+# LIVE CONFIG INFO
+
 configure do |c|
   c.nick    = "botspade"
   c.server  = "irc.twitch.tv"
@@ -20,6 +23,16 @@ configure do |c|
   c.password = "oauth:cbr74bjxkfc5r24lqs0yph44fgbgam7" # Get yours here: http://twitchapps.com/tmi/
   c.verbose = true
 end
+
+#
+# TEST CONFIG INFO
+
+#configure do |c|
+#  c.nick    = "botspade"
+#  c.server  = "0.0.0.0"
+#  c.port    = 6667
+#  c.verbose = true
+#end
 
 #############
 #
@@ -45,7 +58,7 @@ helpers do
   # Bot admins. Which users will be able to !togglebets, !savedata, and other admin-only commands?
   # follow the example below to add as many admins as you'd like to.
   @admins_array = []
-  @admins_array << "watchspade" # << "another_admin" << "another_one"
+  @admins_array << "watchspade" << "test" # << "another_admin" << "another_one"
 
 end
 

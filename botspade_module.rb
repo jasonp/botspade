@@ -111,6 +111,17 @@ helpers do
     end
   end
   
+  def db_get_all_bets_from_user(user_id)
+    bets = @db.execute( "SELECT * FROM bets WHERE user_id = ?", [user_id] )
+    if (bets)
+      puts "#{bets}"
+      return bets
+    else
+      puts "#{user_id} not found in bets db"
+      return nil
+    end
+  end
+  
   # Some checkins fucntions
   #
 
