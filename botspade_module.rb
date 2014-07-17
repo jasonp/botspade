@@ -48,6 +48,17 @@ helpers do
     end
   end
   
+  def get_user_by_id(user_id)
+    puts "getting user number #{user_id}" #debug
+    user = @db.execute( "SELECT * FROM users WHERE id = ?", [user_id] ).first
+    if (user)
+      return user
+    else
+      puts "#{user_id} not found in db"
+      return nil
+    end
+  end
+  
   #
   # Get win/loss function
   # returns an array: wins_losses, [0] = wins, [1] = losses, [2] = ties, [3] = ratio
@@ -66,6 +77,42 @@ helpers do
   def db_set_game(status)
     return true if @db.execute( "INSERT INTO games ( status, timestamp ) VALUES ( ?, ? )", [status, Time.now.utc.to_i])
   end
+  
+  # DB fucntions for betting
+  # bet[0] = id, [1] = user_id, [2] = bet (0/1/2), [3] = bet_amount, [4] = result (was the bet a winner), [5] = timestamp
+  
+  def db_create_bet(user_id, bet, bet_amount, result)
+    return true if @db.execute( "INSERT INTO bets ( user_id, bet, bet_amount, result, timestamp ) VALUES ( ?, ?, ?, ?, ? )", [user_id, bet, bet_amount, result, Time.now.utc.to_i])
+  end
+
+  def db_set_bet(bet_id, result)
+    @db.execute( "UPDATE bets SET result = ? WHERE id = ?", [result, bet_id] )
+  end
+
+  def db_get_latest_bet_from_user(user_id)
+    bet = @db.execute( "SELECT * FROM bets WHERE user_id = ? ORDER BY timestamp DESC LIMIT 1", [user_id] ).first
+    if (bet)
+      puts "#{bet}"
+      return bet
+    else
+      puts "#{user_id} not found in bets db"
+      return nil
+    end
+  end
+  
+  def db_get_all_open_bets
+    bets = @db.execute( "SELECT * FROM bets WHERE result = ?", [0] )
+    if (bets)
+      puts "#{bets}"
+      return bets
+    else
+      puts "None found in db"
+      return nil
+    end
+  end
+  
+  # Some checkins fucntions
+  #
 
   def db_checkins_get(user_id)
     checkin = @db.execute( "SELECT timestamp FROM checkins WHERE user_id = ? ORDER BY timestamp DESC LIMIT 1", [user_id] ).first
@@ -81,6 +128,8 @@ helpers do
   def db_checkins_save(user_id, points)
     @db.execute( "UPDATE users SET points = ? WHERE id = ?", [points, user_id] )
   end
+  
+
   
   # Get & Set user profile info
   #

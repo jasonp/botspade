@@ -36,24 +36,21 @@ on :connect do  # initializations
   # Change win (1) / lose (2) / tie (3) to INTs for database optimisation.
   @db.execute "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY, status TINYINT, timestamp BIGINT)"
 
+  # Create a DB table that tracks bets. bet: 1 - win / 2 - loss / 3 - tie. result: 0 - no result yet, 
+  # 1 - correct bet, 2 - incorrect bet
+  @db.execute "CREATE TABLE IF NOT EXISTS bets (id INTEGER PRIMARY KEY, user_id INT, bet INT, bet_amount INT, result INT, timestamp BIGINT)"
+  
   # Create a table for custom user-generated call and response.
   # @db.execute "CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, command TEXT, response TEXT, timestamp BIGINT)"
 
   # Establish a database of Spade's viewers
   # e.g. {viewer => {country => USA, strength => 12}}
-  @viewerdb = {}
-  if File::exists?('viewerdb.txt')
-    viewerfile = File.read('viewerdb.txt')
-    @viewerdb = JSON.parse(viewerfile)
-  end
-
-  # Keeps track of wins / losses & maybe other stats eventually.
-  # e.g. {wincount => 5, losscount => 20, 298273429834 => win, 2094203498234 => loss}
-  #@gamesdb = {}
-  #if File::exists?('gamesdb.txt')
-  #  gamesfile = File.read('gamesdb.txt')
-  #  @gamesdb = JSON.parse(gamesfile)
+  #@viewerdb = {}
+  #if File::exists?('viewerdb.txt')
+  #  viewerfile = File.read('viewerdb.txt')
+  #  @viewerdb = JSON.parse(viewerfile)
   #end
+
 
   # Track bets made. Resets every time bets are tallied.
   @betsdb = {}
@@ -120,6 +117,18 @@ helpers do
       end
     else
       return FALSE
+    end
+  end
+  
+  def bet_converts_to_number(string)
+    if string == "win"
+      return 1 
+    elsif string == "loss"
+      return 2
+    elsif string == "tie"
+      return 3
+    else 
+      return false
     end
   end
 
@@ -311,7 +320,7 @@ end
 
 on :channel, /^!dump$/i do
   user = get_user(nick)
-  db_get_profile(user[0])
+  db_get_all_open_bets
   msg channel, "Dumped"
 end
 
@@ -385,16 +394,19 @@ end
 on :channel, /^!bet (.*) (.*)/i do |first, last|
   bet_amount = first.to_i
   win_loss = last.downcase
+  user = get_user(nick)
   if @betsopen == TRUE
     if first.to_f < 1
       msg channel, "Sorry, you can't bet in fractions/phrases... whole numbers only!"    
     else
-      if last == "win" || last == "loss" || last == "tie"
+      numerical_bet = bet_converts_to_number(win_loss)
+      if (numerical_bet)
         if person_has_enough_points(nick, bet_amount)
-          if @betsdb[nick]
+          previous_bet = db_get_latest_bet_from_user(user[0]) if (db_get_latest_bet_from_user(user[0]))
+          if (previous_bet) && previous_bet[4] == 0
             msg channel, "#{nick}: Bet Refused, You have already bet"
           else
-            @betsdb[nick] = [bet_amount, win_loss]
+            db_create_bet(user[0], numerical_bet, bet_amount, 0)
             take_points(nick, bet_amount)
             msg channel, "#{nick}: Bet recorded."
           end
@@ -413,47 +425,85 @@ end
 
 on :channel, /^!reportgame (.*)/i do |first|
   if user_is_an_admin?(nick)
+    protoresult = first.downcase
     total_won = 0
     winner_count = 0
-    if first.downcase == "win"
-      db_set_game(1)
-      @betsdb.keys.each do |bettor|
-        bet_amount = @betsdb[bettor][0]
-        win_loss = @betsdb[bettor][1]
-        if win_loss == "win"
-          winnings = bet_amount * 2
-          total_won = total_won + winnings
-          winner_count = winner_count + 1
-          give_points(bettor, winnings)
-        end
-      end
-    elsif first.downcase == "loss"
-      db_set_game(2)
-      @betsdb.keys.each do |bettor|
-        bet_amount = @betsdb[bettor][0]
-        win_loss = @betsdb[bettor][1]
-        if win_loss == "loss"
-          winnings = bet_amount * 2
-          total_won = total_won + winnings
-          winner_count = winner_count + 1
-          give_points(bettor, winnings)
-        end
-      end
-    elsif first.downcase == "tie"
-      db_set_game(3)
-      @betsdb.keys.each do |bettor|
-        bet_amount = @betsdb[bettor][0]
-        win_loss = @betsdb[bettor][1]
-        if win_loss == "tie"
-          winnings = bet_amount * 2
-          total_won = total_won + winnings
-          winner_count = winner_count + 1
-          give_points(bettor, winnings)
-        end
-      end
-    end
-    @betsdb = {}
-    msg channel, "Bets tallied. #{total_won.to_s} #{@botmaster} Points won by #{winner_count.to_s} gambler(s)."
+    total_lost = 0
+    number_of_bettors = 0
+    report = bet_converts_to_number(protoresult)
+    if (report)
+      puts "game reported as #{report}"
+      db_set_game(report)
+      open_bets = db_get_all_open_bets
+      if (open_bets)
+        number_of_bettors = open_bets.count 
+        open_bets.each do |open_bet|
+          user = get_user_by_id(open_bet[1])
+          if (user)
+            puts "We found #{user[1]} betting"
+            if open_bet[2] == report
+              puts "they bet correctly"
+              winnings = open_bet[3] * 2
+              puts "they get #{winnings.to_s} points"
+              total_won = total_won + winnings
+              puts "total won is now #{total_won.to_s}"
+              winner_count = winner_count + 1
+              puts "winner count is #{winner_count.to_s}"
+              give_points(user[1], winnings)
+              db_set_bet(open_bet[0], 1)
+            else
+              puts "they bet incorrectly"
+              total_lost = total_lost + open_bet[3]
+              puts "total lost is #{total_lost.to_s}"
+              db_set_bet(open_bet[0], 2)
+            end 
+          end # if user
+        end # open bets loop
+      end # if open_bets
+    end # if report
+    
+
+#    if first.downcase == "win"
+#      db_set_game(1)
+#      @betsdb.keys.each do |bettor|
+#        bet_amount = @betsdb[bettor][0]
+#        win_loss = @betsdb[bettor][1]
+#        if win_loss == "win"
+#          winnings = bet_amount * 2
+#          total_won = total_won + winnings
+#          winner_count = winner_count + 1
+#          give_points(bettor, winnings)
+#        end
+#      end
+#    elsif first.downcase == "loss"
+#      db_set_game(2)
+#      @betsdb.keys.each do |bettor|
+#        bet_amount = @betsdb[bettor][0]
+#        win_loss = @betsdb[bettor][1]
+#        if win_loss == "loss"
+#          winnings = bet_amount * 2
+#          total_won = total_won + winnings
+#          winner_count = winner_count + 1
+#          give_points(bettor, winnings)
+#        end
+#      end
+#    elsif first.downcase == "tie"
+#      db_set_game(3)
+#      @betsdb.keys.each do |bettor|
+#        bet_amount = @betsdb[bettor][0]
+#        win_loss = @betsdb[bettor][1]
+#        if win_loss == "tie"
+#          winnings = bet_amount * 2
+#          total_won = total_won + winnings
+#          winner_count = winner_count + 1
+#          give_points(bettor, winnings)
+#        end
+#      end
+#    end
+#    @betsdb = {}
+
+
+    msg channel, "Bets tallied. #{total_won.to_s} #{@botmaster} Points won and #{total_lost.to_s} #{@botmaster} Points lost by #{number_of_bettors} gambler(s)."
   end
 end
 
