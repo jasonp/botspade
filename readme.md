@@ -24,7 +24,7 @@ This is a work in progress, including the documentation.
 
 ## Instructions
 
-> BotSpade requires Ruby AND PHP. Ruby for the bot, PHP for the web page where people can check their points when you have verbose mode turned off. If you don't care about verbose (i.e. you don't have many users), then PHP is not required.
+> BotSpade requires Ruby AND PHP. Ruby for the bot, PHP for the web page where people can check their points when you have talkative mode turned off. If you don't care about talkative (i.e. you don't have many users), then PHP is not required.
 
 BotSpade runs in Ruby 2.1.0 on top of the Isaac IRC chat bot gem. It's best to run it on a server like the ones you can get for $5/month from [Digital Ocean](http://digitalocean.com), but you can also run it on your mac or Linux based system. You can run it on a PC, too, but I don't know the steps for that and we'll have to add that later. 
 
