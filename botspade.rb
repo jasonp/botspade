@@ -542,14 +542,16 @@ on :channel, /^!referredby (.*)/i do |first|
   else
     if db_user_generate(nick)
       newuser = get_user(nick)
-      if db_checkins_get(newuser[0])
-        total_checkins = db_user_checkins_count(user[0])
-        give_points(nick, 14)
-        give_points(referrer, 10)
-        msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
-      end
-    end  
-  end
+      if (newuser)
+        if db_checkins_get(newuser[0])
+          total_checkins = db_user_checkins_count(user[0])
+          give_points(nick, 14)
+          give_points(referrer, 10)
+          msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
+        end
+      end # if newuser
+    end # user_generate
+  end # if user
 end
 
 ############################################################################
