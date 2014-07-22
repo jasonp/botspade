@@ -3,7 +3,7 @@
 Allow your viewers to bet with virtual points on your wins and losses, and other things.
 
 BotSpade can:
-* Change its name to yours! e.g. "BotWarOwl"
+* Change its name to yours! e.g. "BotEtheco"
 * Provide basic call-and-response in chat, e.g. !settings
 * Provide points to viewers when they check-in (!checkin)
 * Allow users to bet on game results (win/loss/tie) using !bet
@@ -23,6 +23,8 @@ BotSpade is to Moobot/Nightbot as WordPress is to Blogger/Tumblr.
 This is a work in progress, including the documentation. 
 
 ## Instructions
+
+> BotSpade requires Ruby AND PHP. Ruby for the bot, PHP for the web page where people can check their points when you have verbose mode turned off. If you don't care about verbose (i.e. you don't have many users), then PHP is not required.
 
 BotSpade runs in Ruby 2.1.0 on top of the Isaac IRC chat bot gem. It's best to run it on a server like the ones you can get for $5/month from [Digital Ocean](http://digitalocean.com), but you can also run it on your mac or Linux based system. You can run it on a PC, too, but I don't know the steps for that and we'll have to add that later. 
 

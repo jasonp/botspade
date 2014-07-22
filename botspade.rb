@@ -12,7 +12,7 @@ require 'isaac'
 require 'json'
 require 'sqlite3'
 require "./botconfig"
-require './botspade_module'
+require './db_module'
 
 
 
