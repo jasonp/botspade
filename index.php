@@ -1,8 +1,8 @@
 <?php
 #
 #  You need to set the correct path for the database file on line 61
-#  for this to work!
-#
+#  for this to work! Place this file in a web-accessible part of your server, 
+#  e.g. /var/www/example.com/public_html/leaderboard/index.php
 #
 
 ?>

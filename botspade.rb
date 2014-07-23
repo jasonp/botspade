@@ -73,20 +73,28 @@ helpers do
   # An expensive way to pretend like I have a daemon
   # check for latent processes and execute them
   def fake_daemon
-    if Time.now.utc.to_i > @betstimer.to_i + 300 && @betsopen == TRUE
+    
+    # The toggle bets timer
+    @timegap = @bets_auto_close_in * 60
+    if Time.now.utc.to_i > @betstimer.to_i + @timegap.to_i && @betsopen == TRUE
       @betsopen = FALSE
       msg channel, "Bets are now closed. GL."
     end
+    
   end
 
-  def save_data
-    msg channel, "success" if File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
-  end
+#
+#  Deprecating...
+#
+#
+#  def save_data
+#    msg channel, "success" if File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', #@checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
+#  end
 
-  def save_data_silent
-    File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
-    fake_daemon
-  end
+#  def save_data_silent
+#    File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && #File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
+#    fake_daemon
+#  end
 
   def take_points(person, points)
     # Newer Fancy Way
@@ -155,12 +163,25 @@ helpers do
   end
 
   def user_is_an_admin?(user)
-    if @admins_array.include?(user)
+    streamer = @botchan
+    streamer[0] = ''
+    puts "checking admin for: #{streamer}"
+    check_this_user = get_user(user)
+    if (check_this_user[6] == 1) || check_this_user == streamer
       return true
     else
       return false
     end
   end
+  
+  def talkative?
+    if @talkative == true
+      return true
+    else
+      return false
+    end
+  end
+  
 end
 
 
@@ -172,7 +193,7 @@ end
 
 
 on :channel, /^!changelog/i do
-  msg channel, "v0.7: SQLite implemented. !bet checks for input. !update, !lookup, !remove working. Fixed db crashes."
+  msg channel, "v0.8: Fixed db crashes. Added points leaderboard: http://watchspade.com/botspade/"
 end
 
 on :channel, /^!beard/i do
@@ -230,6 +251,18 @@ end
 
 on :channel, /^!madeby/i do
   msg channel, "#{@botmaster} uses BotSpade. Get your own bot: http://github.com/jasonp/botspade"
+end
+
+on :channel, /^!talkative/i do
+  if user_is_an_admin?(nick)
+    if @talkative == true
+      @talkative = false
+      msg channel, "Talkative mode off."
+    else
+      @talkative = true
+      msg channel, "Talkative mode on."
+    end
+  end
 end
 
 on :channel, /^!stats$/i do
@@ -312,9 +345,11 @@ on :channel, /^!update$/i do
 end
 
 on :channel, /^!dump$/i do
-  user = get_user(nick)
-  db_get_all_open_bets
-  msg channel, "Dumped"
+  if user_is_an_admin?(nick)
+    user = get_user(nick)
+    db_get_all_open_bets
+    msg channel, "Dumped"
+  end
 end
 
 on :channel, /^!lookup (.*) (.*)/i do |first, last|
@@ -336,14 +371,14 @@ on :channel, /^!lookup (.*) (.*)/i do |first, last|
           lookup_value = person_hash[attribute]
           msg channel, "#{person}: #{lookup_value}"
         else
-          msg channel, "Sorry, nothing in the viewer database for that!"
+          msg channel, "Sorry, nothing in the viewer database for that!" if talkative?
         end
       else
-        msg channel, "#{person}: Empty profile!"
+        msg channel, "#{person}: Empty profile!" if talkative?
       end # if person_hash
     end
   else
-    msg channel, "Sorry, nothing in the viewer database for that!"  
+    msg channel, "Sorry, nothing in the viewer database for that!" if talkative?
   end
 end
 
@@ -361,7 +396,7 @@ on :channel, /^!remove (.*)/i do |first|
         db_set_profile(user[0], person_hash)
         msg channel, "#{attribute} removed for #{nick}"
       else
-        msg channel, "I don't see anything to remove!"
+        msg channel, "I don't see anything to remove!" if talkative?
       end
     end
   end
@@ -378,6 +413,7 @@ end
 #
 
 on :channel, /^!bet$/i do
+  fake_daemon
   bet_status = ""
   if @betsopen == TRUE
     bet_status = "(Bets are open right now)"
@@ -385,10 +421,10 @@ on :channel, /^!bet$/i do
     bet_status = "(Bets are closed right now)"
   end
   msg channel, "Usage: !bet [points] [win/loss/tie] e.g. !bet 15 loss #{bet_status}"
-  fake_daemon
 end
 
 on :channel, /^!bet (.*) (.*)/i do |first, last|
+  fake_daemon
   bet_amount = first.to_i
   win_loss = last.downcase
   user = get_user(nick)
@@ -405,19 +441,18 @@ on :channel, /^!bet (.*) (.*)/i do |first, last|
           else
             db_create_bet(user[0], numerical_bet, bet_amount, 0)
             take_points(nick, bet_amount)
-            msg channel, "#{nick}: Bet recorded."
+            msg channel, "#{nick}: Bet recorded." if talkative?
           end
         else
           msg channel, "Whoops, #{nick} it looks like you don't have enough points!"
         end
       else
-        msg channel, "You can only bet for: win, loss, tie. Check spelling!"
+        msg channel, "You can only bet for: win, loss, tie. Check spelling!" 
       end #check for not win/loss/tie  
     end
   else
     msg channel, "Sorry, bets aren't open right now."
   end
-  fake_daemon
 end
 
 on :channel, /^!reportgame (.*)/i do |first|
@@ -468,17 +503,13 @@ on :channel, /^!togglebets/i do
     if @betsopen == FALSE
       @betsopen = TRUE
       @betstimer = Time.now.utc
-      msg channel, "Betting is now open for 5 minutes. Place your bets: !bet [points] [win/loss/tie]"
+      msg channel, "Betting is now open for #{@bets_auto_close_in} minutes. Place your bets: !bet [points] [win/loss/tie]"
     elsif @betsopen == TRUE
       @betsopen = FALSE
       msg channel, "Betting is now closed. GL."
     end
   end
 end
-
-#on :channel, /^!1v1$/i do
-#  msg channel, "Usage: !1v1 [win/loss] - all 1v1 bets are for 2 points, but cost nothing"
-#end
 
 # Method for users to give points to other viewers
 # !give user points
@@ -628,7 +659,7 @@ on :channel, /^!checkin/i do
         msg channel, "Thanks for checking in, #{nick}! You have been given #{@checkin_points} #{@botmaster} Points! [Total check-ins: #{total_checkins}]"
       end  
     else
-      msg channel, "#{nick} checked in already, no #{@botmaster} Points given."
+      msg channel, "#{nick} checked in already, no #{@botmaster} Points given." if talkative?
     end  
   else
     if write_user(nick)
@@ -646,19 +677,22 @@ on :channel, /^!points/i do
   if (user)
     if user[2] > 0
       userpoints = user[2].to_s
-      msg channel, "#{nick} has #{userpoints} #{@botmaster} Points."
+      msg channel, "#{nick} has #{userpoints} #{@botmaster} Points." if talkative?
     else
-      msg channel, "Sorry, it doesn't look like you have any #{@botmaster} Points!"
+      msg channel, "Sorry, it doesn't look like you have any #{@botmaster} Points!" if talkative?
     end
   else
     if write_user(nick)
       newuser = get_user(nick)
       if db_checkins_get(newuser[0])
         give_points(nick, @checkin_points)
-        msg channel, "#{nick}: Welcome! You have been checked-in and given #{@checkin_points} #{@botmaster} Points! [Total check-ins: 1]"
+        msg channel, "#{nick}: Welcome! You have been checked-in and given #{@checkin_points} #{@botmaster} Points! [Total check-ins: 1]" if talkative?
       end
     end
-  end  
+  end 
+  if !talkative? 
+    msg channel, "You can check your points here: #{@leaderboard_location}"
+  end
   fake_daemon
 end
 

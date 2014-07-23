@@ -80,7 +80,7 @@ helpers do
     msg channel, "!lookup test country"
     
     puts "lookup a nil value"
-    msg channel, "!lookup watchsapde fleebleblox"
+    msg channel, "!lookup misvak country"
     
     puts "get an index"
     msg channel, "!lookup index"
@@ -102,6 +102,12 @@ helpers do
     
     puts "my own stats"
     msg channel, "!statsme"
+    
+    puts "talkative toggle"
+    msg channel, "!talkative"
+    
+    puts "seeing if it talks"
+    msg channel, "!checkin"
   end
 
   
