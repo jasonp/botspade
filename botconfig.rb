@@ -16,23 +16,23 @@
 #
 # LIVE CONFIG INFO
 
-configure do |c|
-  c.nick    = "botspade"
-  c.server  = "irc.twitch.tv"
-  c.port    = 6667
-  c.password = "oauth:cbr74bjxkfc5r24lqs0yph44fgbgam7" # Get yours here: http://twitchapps.com/tmi/
-  c.verbose = true
-end
+#configure do |c|
+#  c.nick    = "botspade"
+#  c.server  = "irc.twitch.tv"
+#  c.port    = 6667
+#  c.password = "oauth:cbr74bjxkfc5r24lqs0yph44fgbgam7" # Get yours here: http://twitchapps.com/tmi/
+#  c.verbose = true
+#end
 
 #
 # TEST CONFIG INFO
 
-#configure do |c|
-#  c.nick    = "botspade"
-#  c.server  = "0.0.0.0"
-#  c.port    = 6667
-#  c.verbose = true
-#end
+configure do |c|
+  c.nick    = "botspade"
+  c.server  = "0.0.0.0"
+  c.port    = 6667
+  c.verbose = true
+end
 
 #############
 #

@@ -331,12 +331,16 @@ on :channel, /^!lookup (.*) (.*)/i do |first, last|
         msg channel, "#{person}: Empty profile!"
       end
     else 
-      if (person_hash[attribute])
-        lookup_value = person_hash[attribute]
-        msg channel, "#{person}: #{lookup_value}"
+      if (person_hash)
+        if (person_hash[attribute])
+          lookup_value = person_hash[attribute]
+          msg channel, "#{person}: #{lookup_value}"
+        else
+          msg channel, "Sorry, nothing in the viewer database for that!"
+        end
       else
-        msg channel, "Sorry, nothing in the viewer database for that!"
-      end
+        msg channel, "#{person}: Empty profile!"
+      end # if person_hash
     end
   else
     msg channel, "Sorry, nothing in the viewer database for that!"  
@@ -544,7 +548,7 @@ on :channel, /^!referredby (.*)/i do |first|
       newuser = get_user(nick)
       if (newuser)
         if db_checkins_get(newuser[0])
-          total_checkins = db_user_checkins_count(user[0])
+          total_checkins = db_user_checkins_count(newuser[0])
           give_points(nick, 14)
           give_points(referrer, 10)
           msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
