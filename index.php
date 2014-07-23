@@ -1,5 +1,11 @@
-# You need to set the database file location below
-# 
+<?php
+#
+#  You need to set the correct path for the database file on line 61
+#  for this to work!
+#
+#
+
+?>
 
 <html>
 <head>
