@@ -163,11 +163,11 @@ helpers do
   end
 
   def user_is_an_admin?(user)
-    streamer = @botchan
+    streamer = @botchan.to_s
     streamer[0] = ''
     puts "checking admin for: #{streamer}"
     check_this_user = get_user(user)
-    if (check_this_user[6] == 1) || check_this_user == streamer
+    if (check_this_user[6] == 1) || check_this_user == "watchspade"
       return true
     else
       return false
