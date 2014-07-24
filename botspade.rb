@@ -60,6 +60,10 @@ on :connect do  # initializations
 
   # Set initial uptime
   @stream_start_time = "none"
+  
+  # Calculate the streamer's name, for initial admin
+  @streamer = @botchan.to_s
+  @streamer[0] = ''
 
 end
 
@@ -163,11 +167,9 @@ helpers do
   end
 
   def user_is_an_admin?(user)
-    streamer = @botchan.to_s
-    streamer[0] = ''
-    puts "checking admin for: #{streamer}"
+    puts "checking admin for: #{@streamer}"
     check_this_user = get_user(user)
-    if (check_this_user[6] == 1) || check_this_user == "watchspade"
+    if (check_this_user[6] == 1) || check_this_user == @streamer
       return true
     else
       return false
