@@ -41,16 +41,7 @@ on :connect do  # initializations
   @db.execute "CREATE TABLE IF NOT EXISTS bets (id INTEGER PRIMARY KEY, user_id INT, bet INT, bet_amount INT, result INT, timestamp BIGINT)"
   
   # Create a table for custom user-generated call and response.
-  # @db.execute "CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, command TEXT, response TEXT, timestamp BIGINT)"
-
-  # Establish a database of Spade's viewers
-  # e.g. {viewer => {country => USA, strength => 12}}
-  #@viewerdb = {}
-  #if File::exists?('viewerdb.txt')
-  #  viewerfile = File.read('viewerdb.txt')
-  #  @viewerdb = JSON.parse(viewerfile)
-  #end
-
+  @db.execute "CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, command TEXT, response TEXT, timestamp BIGINT)"
 
   # Track bets made. Resets every time bets are tallied.
   @betsdb = {}
@@ -86,19 +77,6 @@ helpers do
     end
     
   end
-
-#
-#  Deprecating...
-#
-#
-#  def save_data
-#    msg channel, "success" if File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', #@checkindb.to_json) && File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
-#  end
-
-#  def save_data_silent
-#    File.write('pointsdb.txt', @pointsdb.to_json) && File.write('checkindb.txt', @checkindb.to_json) && #File.write('viewerdb.txt', @viewerdb.to_json) && File.write('gamesdb.txt', @gamesdb.to_json)
-#    fake_daemon
-#  end
 
   def take_points(person, points)
     # Newer Fancy Way
@@ -184,75 +162,75 @@ helpers do
     end
   end
   
+  def respond_to_commands(message)
+    commands = db_get_all_commands
+    if (commands)
+      commands.each do |command|
+        if message == command[1]
+          response = command[2]
+          msg channel, "#{response}"
+        end
+      end
+    end
+    fake_daemon
+  end
+  
 end
 
 
 ############################################################################
 #
-# Basic Call & Response presets
+# Adding and removing user commands to the DB
 #
 
+on :channel, /^!addcommand/i do 
+  newmessage = message.gsub("!addcommand ", "")
+  new_command = newmessage.split(' ')[0]
+  response = newmessage.split(' ').drop(1).join(' ')
+  msg channel, "success" if db_set_command(new_command, response)
+end
 
+on :channel, /^!removecommand/i do
+  newmessage = message.gsub("!removecommand ", "")
+  command_to_remove = message.split(' ')[0]
+  command = db_get_command(command_to_remove)
+  msg channel, "success" if db_remove_command(command[0])  
+end
+
+############################################################################
+#
+# Basic Call & Response presets, toggles
+#
 
 on :channel, /^!changelog/i do
-  msg channel, "v0.8: Fixed db crashes. Added points leaderboard: http://watchspade.com/botspade/"
+  msg channel, "v0.85: Commands now saved in DB and editable via chat"
 end
 
-on :channel, /^!beard/i do
-  msg channel, "#{@botmaster} wears a beard because it's awesome. He trims with a Panasonic ER-GB40 and shaves the lower whiskers with a safety razor, which is badass."
-end
-
-on :channel, /^!commands/i do
-  msg channel, "Some commands include: !points, !bet, !top, !leaderboard, !changelog, !points, !welcome, !shave, !getpoints, !minispade, !twitter, !spade, !tweet, !follow, !help. There are others."
-end
-
-on :channel, /^!welcome/i do
-  msg channel, "Welcome to #{@botmaster}'s stream! Don't forget to !checkin for #{@botmaster} Points. Type !help for more options."
-  fake_daemon
-end
-
-on :channel, /^!getpoints/i do
-  msg channel, "You can get #{@botmaster} Points by checking in (!checkin), donating, tweeting (!tweet), & winning bets (!bet for usage). Or you can be given points (!give)."
-end
-
-on :channel, /^!buffering/i do
-  msg channel, "Possibly try the external stream program, http://tards.net/ this has helped a few reduce buffering issues."
-end
-
-
-on :channel, /^!minispade/i do
-  msg channel, "Spade has a just-about two year old son: minispade."
-end
-
-on :channel, /^!follow/i do
-  msg channel, "Earn five points for following the stream (first time only!!), five points for following @jasonp on Twitter (first time only!!)"
-end
-
-on :channel, /^!tweet/i do
-  msg channel, "Earn five points for tweeting: Watching Spade stream some CSGO! http://twitch.tv/watchspade cc @jasonp"
-end
-
-on :channel, /^!spade$/i do
-  msg channel, "When Alexander Graham Bell invented the telephone, he had three missed calls from Spade."
-end
-
-on :channel, /^!spadeout/i do
-  if user_is_an_admin?(nick)
-    @stream_start_time = "none"
-  end
-  msg channel, "Spaaaaaaaaade out."
-end
-
-on :channel, /^!botspade/i do
-  msg channel, "I respond to !beard, !bet [points] [win/loss/tie], !checkin, !points, and a few other surprises."
-end
-
-on :channel, /^!help/i do
-  msg channel, "I respond to !beard, !bet [points] [win/loss/tie], !checkin, !points, and a few other surprises."
-end
 
 on :channel, /^!madeby/i do
   msg channel, "#{@botmaster} uses BotSpade. Get your own bot: http://github.com/jasonp/botspade"
+end
+
+on :channel, /^!makeadmin (.*)/i do |first|
+  user_to_make_admin = first.downcase
+  user = get_user(user_to_make_admin)
+  admin_value = 1  
+  if (user)
+    if set_user_admin_value(admin_value, user[0])
+      msg channel, "success"
+    end
+  end
+end
+
+on :channel, /^!removeadmin (.*)/i do |first|
+  user_to_make_admin = first.downcase
+  user = get_user(user_to_make_admin)
+  admin_value = 0  
+  if (user)
+    if set_user_admin_value(admin_value, user[0])
+      msg channel, "success"
+    end
+  end
 end
 
 on :channel, /^!talkative/i do
@@ -736,12 +714,17 @@ on :channel, /^!statsme/i do
   end
 end
 
-# build functions (helpers) for common DB calls, e.g. if_user_has_checkins(user), etc
+############################################################################
+#
+# Capture all remaining chat
+# This has to be last or it will prevent all prior listens
+#
 
-# bet on 1v1
-# get & set a status message?
-# split out a separate file for variables & customization, leave engine in main file
-# bet on other aspects: ace, 4k, 3k, 2k, 1k, pistol something, beat average stats, & so on
+on :channel, // do
+  respond_to_commands(message)
+end
+
+
 
 # week-long lottery type of thing? reward for most check-ins? (I don't track this currently)
 # !game starts game of clues with !command subsequent, winner gets 50 points or something.

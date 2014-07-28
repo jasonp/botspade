@@ -107,7 +107,22 @@ helpers do
     msg channel, "!talkative"
     
     puts "seeing if it talks"
-    msg channel, "!checkin"
+    msg channel, "!points"
+    
+    puts "adding a command"
+    msg channel, "!addcommand !hello hello back to you sir"
+    
+    puts "trying the command"
+    msg channel, "!hello"
+    
+    puts "removing the command"
+    msg channel, "!removecommand !hello"
+    
+    puts "making an admin"
+    msg channel, "!makeadmin misvak"
+    
+    puts "removing an admin"
+    msg channel, "!removeadmin misvak"
   end
 
   

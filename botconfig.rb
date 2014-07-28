@@ -58,41 +58,14 @@ helpers do
   @botchan = "#watchspade"
   
   # If you turn talkative mode OFF (!talkative in chat to toggle), you also need to 
-  # say where folks can see their points... where you put index.pnp!
+  # say where folks can see their points... where you put index.php!
   #
   @talkative = true
   @leaderboard_location = "http://watchspade.com/botspade/"
 
-  # Bot admins. Which users will be able to !togglebets, !savedata, and other admin-only commands?
-  # follow the example below to add as many admins as you'd like to.
-  @admins_array = []
-  @admins_array << "watchspade" << "test" # << "another_admin" << "another_one"
 
 end
 
-#############
-#
-# Let's add some custom commands and responses. Sorry for the syntax, but it can be very powerful!
-# Here's how it works. Each command has a block of code that looks like this:
-#
-# on :channel, /^!testme/i do    <---- this is the command the user types in chat, e.g. !points
-#   msg channel, "Here's the info I want to put in response."   <--- Here is how the bot responds
-# end
-#
-# To create custom commands, replace the "testme" with the command you want to make, e.g. "gaben"
-# Put the bot's response in the quotes. To make more commands, copy + pase a new block of code.
-#
-# GLHF.
 
 
-on :channel, /^!replaceme/i do
-  msg channel, "Put the bot's response here. You can use the name of the user who triggered the command with: #{nick}"
-end
 
-on :channel, /^!twitter/i do
-  msg channel, "Spade's twitter is http://twitter.com/jasonp"
-end
-
-on :channel, /^!shave/i do
-  msg channel, "If the stream reaches 75 concurrent viewers, Spade will shave his beard off. On stream."
-end

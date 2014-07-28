@@ -78,6 +78,21 @@ You can exit (stop) the bot by typing:
 
 	ctrl+c
 
+### Use / Admin
+
+!togglebets - Toggles betting open/closed. Bets will auto-close after 5 minutes or whatever default time you set.
+
+!reportgame [win/loss/tie] - Report the game you just played, tally bets and distribute winnings or losses. 
+
+!addcommand [command] [description] e.g.
+!addcommand !spade Spade doesn't dial the wrong number, you answer the wrong phone
+
+!removecommand [command], e.g. !removecommand !spade
+
+!startstream - start stream timer
+!endstream - ends stream timer
+!uptime - shows stream uptime
+
 ### Contributing
 
 If you'd like to help, I'd love it! Just fork the repository, and feel free to send pull requests and reach out to me about contributing. Please send pull requests to the "risky" branch, master is the "stable release."

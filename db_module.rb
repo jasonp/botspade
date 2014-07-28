@@ -29,6 +29,11 @@ helpers do
     rescue SQLite3::Exception => e
     end
   end
+  
+  def set_user_admin_value(admin_value, user_id)
+    puts "writing admin for user_id #{user_id}" #debug
+    return TRUE if @db.execute( "UPDATE users SET admin = ? WHERE id = ?", [admin_value, user_id] )
+  end
 
 
   #
@@ -76,6 +81,41 @@ helpers do
 
   def db_set_game(status)
     return true if @db.execute( "INSERT INTO games ( status, timestamp ) VALUES ( ?, ? )", [status, Time.now.utc.to_i])
+  end
+  
+  
+  #
+  # Commands
+  # command[0] = id, [1] = command, [2] = response, [3] = timestamp
+  #
+  def db_set_command(command, response)
+    return true if @db.execute( "INSERT INTO commands ( command, response, timestamp ) VALUES ( ?, ?, ? )", [command, response, Time.now.utc.to_i])
+  end
+  
+  def db_get_all_commands
+    commands = @db.execute( "SELECT * FROM commands" )
+    if (commands)
+      puts "#{commands}"
+      return commands
+    else
+      puts "None found in db"
+      return nil
+    end
+  end
+  
+  def db_get_command(command)
+    puts "Getting the command: #{command}"
+    the_command = @db.execute( "SELECT * FROM commands WHERE command LIKE ?", [command])
+    if (the_command)
+      puts "#{the_command}"
+      return the_command
+    else
+      return nil
+    end
+  end
+  
+  def db_remove_command(command_id)
+    return true if @db.execute( "DELETE FROM commands WHERE id = ? ", [command_id] )
   end
   
   # DB fucntions for betting
