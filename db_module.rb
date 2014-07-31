@@ -118,6 +118,96 @@ helpers do
     return true if @db.execute( "DELETE FROM commands WHERE id = ? ", [command_id] )
   end
   
+  #
+  # Items
+  # item[0] = id, [1] = name, [2] = description, [3] = price, [4] = ownable, [5] = timestamp
+  #
+  def db_set_item(name, description, price, ownable)
+    return true if @db.execute( "INSERT INTO items ( name, description, price, ownable, timestamp ) VALUES ( ?, ?, ?, ?, ? )", [name, description, price, ownable, Time.now.utc.to_i])
+  end
+  
+  def db_get_all_items
+    items = @db.execute( "SELECT * FROM items" )
+    if (items)
+      puts "#{items}"
+      return items
+    else
+      puts "None found in db"
+      return nil
+    end
+  end
+  
+  def db_get_item(item_name)
+    puts "Getting the item: #{item_name}"
+    the_item = @db.execute( "SELECT * FROM items WHERE name LIKE ?", [item_name])[0]
+    if (the_item)
+      puts "#{the_item}"
+      return the_item
+    else
+      return nil
+    end
+  end
+  
+  def db_get_item_by_id(item_id)
+    puts "Getting the item by ID: #{item_id}"
+    the_item = @db.execute( "SELECT * FROM items WHERE id = ?", [item_id])[0]
+    if (the_item)
+      puts "#{the_item}"
+      return the_item
+    else
+      return nil
+    end
+  end
+  
+  def db_remove_item(item_id)
+    return true if @db.execute( "DELETE FROM items WHERE id = ? ", [item_id.to_i] )
+  end
+  
+  #
+  # Queue [0] = id, [1] = item_id, [2] = timestamp
+  #
+  
+  def db_add_item_to_queue(item_id)
+        return true if @db.execute( "INSERT INTO queue ( item_id, timestamp ) VALUES ( ?, ? )", [item_id, Time.now.utc.to_i])
+  end
+  
+  def db_remove_item_from_queue(queue_id)
+    return true if @db.execute( "DELETE FROM queue WHERE id = ? ", [queue_id] )
+  end
+  
+  def db_get_queue
+    queue = @db.execute ( "SELECT * FROM queue")
+    if (queue)
+      puts "#{queue}"
+      return queue
+    else
+      return nil
+    end
+  end
+  
+  #
+  #  Adding and removing items from inventory
+  #
+  
+  def db_add_item_to_inventory(user_id, item_id)
+        return true if @db.execute( "INSERT INTO inventory ( user_id, item_id, timestamp ) VALUES ( ?, ?, ? )", [user_id, item_id, Time.now.utc.to_i])
+  end
+  
+  def db_remove_item_from_inventory(inventory_id)
+    return true if @db.execute( "DELETE FROM inventory WHERE id = ? ", [inventory_id] )
+  end
+  
+  def db_get_inventory_for(user_id)
+    items = @db.execute( "SELECT * FROM inventory WHERE user_id = ?", [user_id] )
+    if (items)
+      puts "#{items}"
+      return items
+    else
+      puts "None found in db"
+      return nil
+    end
+  end
+  
   # DB fucntions for betting
   # bet[0] = id, [1] = user_id, [2] = bet (0/1/2), [3] = bet_amount, [4] = result (was the bet a winner), [5] = timestamp
   

@@ -28,7 +28,7 @@ This is a work in progress, including the documentation.
 
 BotSpade runs in Ruby 2.1.0 on top of the Isaac IRC chat bot gem. It's best to run it on a server like the ones you can get for $5/month from [Digital Ocean](http://digitalocean.com), but you can also run it on your mac or Linux based system. You can run it on a PC, too, but I don't know the steps for that and we'll have to add that later. 
 
-On your server, I recommend using [RVM](http://rvm.io). To do this you will need to SSH in to your server, or on a Mac you need to open Terminal. Ultimately, I'll explain that here, but for now: Google. 
+On your server (or Mac), I recommend using [RVM](http://rvm.io). To do this you will need to SSH in to your server, or on a Mac you need to open Terminal. Ultimately, I'll explain that here, but for now: Google. 
 
 	\curl -sSL https://get.rvm.io | bash -s stable
 	
@@ -89,16 +89,38 @@ You can exit (stop) the bot by typing:
 
 !removecommand [command], e.g. !removecommand !spade
 
+!additem [Spade's Fedora] 20 This is Spade's infamous Fedora.
+
+!removeitem [Spade's Fedora]
+
+!addspecial [Fedora] 20 Make spade wear a fedora on stream
+
+!removespecial [Fedora]
+
 !startstream - start stream timer
+
 !endstream - ends stream timer
+
 !uptime - shows stream uptime
+
+!checkin - checks the user in and provides points per the checkin-points amount.
+
+!bet [points] [win/loss/tie]
+
+!shop - lists items in the shop.
 
 ### Contributing
 
-If you'd like to help, I'd love it! Just fork the repository, and feel free to send pull requests and reach out to me about contributing. Please send pull requests to the "risky" branch, master is the "stable release."
+If you'd like to help, I'd love it! Just fork the repository, and feel free to send pull requests and reach out to me about contributing. Please send pull requests to the "requests" branch, master is the "stable release" and "risky" is where I try my own things. 
 
 Big thanks to @Etheco for his contributions so far. 
 
 ### MIT License
 
-Share it, etc. I'll find and paste that license text in here someday. Please always include credit to Jason "Spade" Preston. 
+Copyright © 2014 Jason Preston
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

@@ -4,7 +4,7 @@
 #
 #   Copyright (c) 2014 by Jason Preston under MIT License
 #   A Twitch Chat Bot
-#   Version 0.7 - 7/08/2014
+#   Version 0.9 - 7/31/2014
 #
 #   Feel free to use for your own nefarious purposes
 
@@ -42,6 +42,11 @@ on :connect do  # initializations
   
   # Create a table for custom user-generated call and response.
   @db.execute "CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, command TEXT, response TEXT, timestamp BIGINT)"
+  
+  # Create a table for custom user-generated items.
+  @db.execute "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, description TEXT, price INT, ownable INT, timestamp BIGINT)"
+  @db.execute "CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY, user_id INT, item_id INT, timestamp BIGINT)"
+   @db.execute "CREATE TABLE IF NOT EXISTS queue (id INTEGER PRIMARY KEY, item_id INT, timestamp BIGINT)"
 
   # Track bets made. Resets every time bets are tallied.
   @betsdb = {}
@@ -108,6 +113,10 @@ helpers do
     else
       return FALSE
     end
+  end
+  
+  def item_is_ownable?(item)
+    return true if item[4] == 1
   end
   
   def bet_converts_to_number(string)
@@ -184,17 +193,177 @@ end
 #
 
 on :channel, /^!addcommand/i do 
-  newmessage = message.gsub("!addcommand ", "")
-  new_command = newmessage.split(' ')[0]
-  response = newmessage.split(' ').drop(1).join(' ')
-  msg channel, "success" if db_set_command(new_command, response)
+  if user_is_an_admin?(nick)
+    newmessage = message.gsub("!addcommand ", "")
+    new_command = newmessage.split(' ')[0].downcase
+    response = newmessage.split(' ').drop(1).join(' ')
+    msg channel, "success" if db_set_command(new_command, response)
+  end 
 end
 
 on :channel, /^!removecommand/i do
-  newmessage = message.gsub("!removecommand ", "")
-  command_to_remove = message.split(' ')[0]
-  command = db_get_command(command_to_remove)
-  msg channel, "success" if db_remove_command(command[0])  
+  if user_is_an_admin?(nick)
+    newmessage = message.gsub("!removecommand ", "")
+    command_to_remove = message.split(' ')[0].downcase
+    command = db_get_command(command_to_remove)
+    msg channel, "success" if db_remove_command(command[0])  
+  end
+end
+
+
+############################################################################
+#
+# Adding and removing user item "specials" to the DB
+#
+
+on :channel, /^!addspecial/i do 
+  if user_is_an_admin?(nick)
+    newmessage = message.gsub("!addspecial ", "")
+    new_item = newmessage.match(/\[.*\]/i).to_s
+    item_description_and_price = newmessage.gsub(new_item + " ", "")    
+    new_item_price = item_description_and_price.split(' ')[0]
+    item_description = item_description_and_price.gsub(new_item_price + " ", "")
+    msg channel, "success" if db_set_item(new_item, item_description, new_item_price, 0)
+  end
+end
+
+on :channel, /^!addspecial$/i do 
+  if user_is_an_admin?(nick)
+    msg channel, "Use: !addspecial [Fedora] 20 Force Spade to wear a fedora for the rest of this stream. Items must have [] around them."
+  end
+end
+
+
+on :channel, /^!removespecial/i do
+  if user_is_an_admin?(nick)  
+    newmessage = message.gsub("!removespecial ", "")
+    special_to_remove = newmessage.match(/\[.*\]/i).to_s
+    puts "finding #{special_to_remove}"
+    item = db_get_item(special_to_remove)
+    if (item)
+      puts "#{item}"
+      msg channel, "success" if db_remove_item(item[0])  
+    else
+      puts "no item to remove"
+    end
+  end
+end
+
+############################################################################
+#
+# Adding and removing user item "items" to the DB
+#
+
+on :channel, /^!additem/i do 
+  if user_is_an_admin?(nick)
+    newmessage = message.gsub("!additem ", "")
+    new_item = newmessage.match(/\[.*\]/i).to_s
+    item_description_and_price = newmessage.gsub(new_item + " ", "")    
+    new_item_price = item_description_and_price.split(' ')[0]
+    item_description = item_description_and_price.gsub(new_item_price + " ", "")
+    msg channel, "success" if db_set_item(new_item, item_description, new_item_price, 1)
+  end
+end
+
+on :channel, /^!additem$/i do 
+  if user_is_an_admin?(nick)
+    msg channel, "Use: !additem [Fedora] 20 Force Spade to wear a fedora for the rest of this stream. Items must have [] around them."
+  end
+end
+
+
+on :channel, /^!removeitem/i do
+  if user_is_an_admin?(nick)  
+    newmessage = message.gsub("!removeitem ", "")
+    item_to_remove = newmessage.match(/\[.*\]/i).to_s
+    puts "finding #{item_to_remove}"
+    item = db_get_item(item_to_remove)
+    if (item)
+      puts "#{item}"
+      msg channel, "success" if db_remove_item(item[0])  
+    else
+      puts "no item to remove"
+    end
+  end
+end
+
+
+
+############################################################################
+#
+# Dynamic item shop / some will have to be presets
+# Items are surrounded by [], e.g. [Spade's Fedora]
+#
+
+on :channel, /^!shop (.*)/i do |first|
+  item_name = first.downcase
+  item = db_get_item(item_name)
+  if (item)
+    msg channel, "#{item[1]}: #{item[2]}"
+  end
+end
+
+on :channel, /^!shop$/i do
+  if talkative?
+    item_list = db_get_all_items
+    item_names = []
+    item_list.each do |item|
+      store_listing = item[1] + " (" + item[3] + "pts)"
+      item_names << store_listing
+    end
+    store_inventory = item_names.join(', ')
+    msg channel, "Shop menu: #{store_inventory} (use !shop [item] for more info)"
+  else
+    msg channel, "Shop is closed."
+  end
+end
+
+on :channel, /^!buy (.*)/i do |first|
+  item_name = first.downcase
+  item = db_get_item(item_name)
+  user = get_user(nick)
+  if (user)
+    if (item)
+      if person_has_enough_points(nick, item[3].to_i)
+        take_points(nick, item[3].to_i)
+        puts "adding #{item[0]} to #{user[0]} user inventory"
+        db_add_item_to_inventory(user[0], item[0]) if item_is_ownable?(item)
+        db_add_item_to_queue(item[0]) unless item_is_ownable?(item)
+        msg channel, "#{nick} has purchased #{item[1]}." if talkative?
+      end
+    end #  item
+  end #  user
+end
+
+############################################################################
+#
+# Managing the queue
+#
+
+on :channel, /^!queue/i do
+  if user_is_an_admin?(nick)
+    queue = db_get_queue
+    the_queue = ""
+    if (queue)
+      queue.each do |item|
+        the_item = db_get_item_by_id(item[1])
+        puts "Db found: #{the_item[1]}"
+        the_queue << the_item[1].to_s + " "
+      end
+      msg channel, "In the queue: #{the_queue}"
+    end
+  end
+end
+
+on :channel, /^!popq$/i do
+  if user_is_an_admin?(nick)
+    queue = db_get_queue
+    if (queue)
+      queue_entry_id = queue[-1][0]
+      db_remove_item_from_queue(queue_entry_id)
+      msg channel, "Removed last item from queue."
+    end
+  end
 end
 
 ############################################################################
@@ -203,12 +372,12 @@ end
 #
 
 on :channel, /^!changelog/i do
-  msg channel, "v0.85: Commands now saved in DB and editable via chat"
+  msg channel, "v0.9: Items can be created by streamer via command line and you can use !shop, !buy"
 end
 
 
 on :channel, /^!madeby/i do
-  msg channel, "#{@botmaster} uses BotSpade. Get your own bot: http://github.com/jasonp/botspade"
+  msg channel, "#{@botmaster} uses BotSpade by http://twitch.tv/watchspade. Get your own bot: http://github.com/jasonp/botspade"
 end
 
 on :channel, /^!makeadmin (.*)/i do |first|
@@ -252,6 +421,21 @@ on :channel, /^!stats$/i do
   tiecount = wins_losses[2]
   wlratio = wins_losses[3]
   msg channel, "#{@botmaster} has reported #{wincount} wins, #{losscount} losses, and #{tiecount} ties. W/L ratio: #{wlratio}"
+end
+
+on :channel, /^!inventory/i do
+  user = get_user(nick)
+  if (user)
+    inventory = db_get_inventory_for(user[0])
+    if (inventory)
+      inventory_string = ""
+      inventory.each do |i|
+        item = db_get_item_by_id(i[2])
+        inventory_string << item[1] + " "
+      end
+      msg channel, "Inventory for #{nick}: #{inventory_string}"
+    end
+  end
 end
 
 ############################################################################
@@ -574,53 +758,53 @@ end
 # The Spade Points Store
 #
 #
-# This must eventually be re-written as a loop somehow...
+# Deprecating...
 
-on :channel, /^!purchase (.*)/i do |protopurchase|
-  purchase = protopurchase.downcase
-  if purchase == "fedora"
-    if person_has_enough_points(nick, 20)
-      take_points(nick, 20)
-      msg channel, "#{nick} has forced #{@botmaster} to wear a Fedora for the rest of this stream. [-20sp]"
-    else
-      msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
-    end
-  elsif purchase == "bdp"
-    if person_has_enough_points(nick, 10)
-      take_points(nick, 10)
-      msg channel, "#{nick} has demanded that Spade make a Big Dick Play. Here goes nothing. [-10sp]"
-    else
-      msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
-    end
-  elsif purchase == "suit"
-    if person_has_enough_points(nick, 10)
-      take_points(nick, 10)
-      msg channel, "#{nick} has bribed Spade to wear a suit for the rest of this stream. Oh boy. [-100sp]"
-    else
-      msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
-    end
-  elsif purchase == "menu"
-    msg channel, "SpadeStore Menu: !fedora (20sp - Spade wears fedora), !bdp (10sp - Spade tries a big dick play), !suit (100sp - Spade wears a suit)"
-  end
-end
+#on :channel, /^!purchase (.*)/i do |protopurchase|
+#  purchase = protopurchase.downcase
+#  if purchase == "fedora"
+#    if person_has_enough_points(nick, 20)
+#      take_points(nick, 20)
+#      msg channel, "#{nick} has forced #{@botmaster} to wear a Fedora for the rest of this stream. [-20sp]"
+#    else
+#      msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
+#    end
+# elsif purchase == "bdp"
+#    if person_has_enough_points(nick, 10)
+#      take_points(nick, 10)
+#      msg channel, "#{nick} has demanded that Spade make a Big Dick Play. Here goes nothing. [-10sp]"
+#    else
+#      msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
+#    end
+#  elsif purchase == "suit"
+#    if person_has_enough_points(nick, 10)
+#     take_points(nick, 10)
+#      msg channel, "#{nick} has bribed Spade to wear a suit for the rest of this stream. Oh boy. [-100sp]"
+#   else
+#      msg channel, "I'm sorry, #{nick}, you don't have enough #{@botmaster} Points!"
+#    end
+#  elsif purchase == "menu"
+#    msg channel, "SpadeStore Menu: !fedora (20sp - Spade wears fedora), !bdp (10sp - Spade tries a big dick play), #suit (100sp - Spade wears a suit)"
+#  end
+#end
 
 on :channel, /^!purchase$/i do
-  msg channel, "SpadeStore Menu: !fedora (20sp - Spade wears fedora), !bdp (10sp - Spade tries a big dick play), !suit (100sp - Spade wears a suit)"
+  msg channel, "New - use !shop"
 end
 
 # Elaborate on what you can buy
 
-on :channel, /^!fedora/i do
-  msg channel, "You can make #{@botmaster} wear a fedora by spending 20 #{@botmaster} Points. Type !purchase fedora to activate."
-end
+#on :channel, /^!fedora/i do
+#  msg channel, "You can make #{@botmaster} wear a fedora by spending 20 #{@botmaster} Points. Type !purchase fedora #to activate."
+#end
 
-on :channel, /^!suit/i do
-  msg channel, "You can make #{@botmaster} wear a suit by spending 100 #{@botmaster} Points. Type !purchase suit to activate."
-end
+#on :channel, /^!suit/i do
+#  msg channel, "You can make #{@botmaster} wear a suit by spending 100 #{@botmaster} Points. Type !purchase suit to #activate."
+#end
 
-on :channel, /^!bdp/i do
-  msg channel, "BDP stands for Big Dick Play. You can make #{@botmaster} attempt a BDP for 10 points with !purchase bdp"
-end
+#on :channel, /^!bdp/i do
+#  msg channel, "BDP stands for Big Dick Play. You can make #{@botmaster} attempt a BDP for 10 points with !purchase bdp"
+#end
 
 # Method to give points for chat activity
 # Check to see if points have been given yet today
@@ -726,12 +910,9 @@ end
 
 
 
-# week-long lottery type of thing? reward for most check-ins? (I don't track this currently)
+# week-long lottery type of thing? reward for most check-ins? 
 # !game starts game of clues with !command subsequent, winner gets 50 points or something.
-# refactor / generalize: admins array, make Spade Points a variable, etc.
-# !bitcoin / !gaben / !esea / !CEVO / !altpug
-# make points given for checkin, etc, variables to be set via chat command via moderators.
-# make store modifiable via chat commands?
+
 
 # old changelog:
 # v0.3: Removed points fee on !give. Added !commands command. Can bet on tie. Added !top. Added Viewer DB !lookup & !update

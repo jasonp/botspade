@@ -37,7 +37,7 @@ helpers do
     msg channel, "!points"
     
     puts "giving points"
-    msg channel, "!give test 10"    
+    msg channel, "!give test 50"    
     
     puts "betting while not allowed"
     msg channel, "!bet 5 win"
@@ -123,6 +123,40 @@ helpers do
     
     puts "removing an admin"
     msg channel, "!removeadmin misvak"
+    
+    puts "adding a special"
+    msg channel, "!addspecial [Fedora] 2 Force Spade to wear a fedora"
+    
+    puts "adding an item"
+    msg channel, "!additem [Spade's Fedora] 1 You now own Spade's fedora"
+    
+    puts "listing the shop"
+    msg channel, "!shop"
+    
+    puts "getting item info in shop"
+    msg channel, "!shop [Spade's Fedora]"
+    
+    puts "buying special"
+    msg channel, "!buy [Fedora]"
+    
+    puts "buying item"
+    msg channel, "!buy [Spade's Fedora]"
+    
+    puts "checking inventory"
+    msg channel, "!inventory"
+    
+    puts "checking the queue"
+    msg channel, "!queue"
+    
+    puts "popping queue"
+    msg channel, "!popq"
+    
+    puts "Removing special"
+    msg channel, "!removespecial [Fedora]"
+
+    puts "Removing item"
+    msg channel, "!removeitem [Spade's Fedora]"
+    
   end
 
   
