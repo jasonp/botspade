@@ -9,7 +9,7 @@ BotSpade can:
 * Allow users to bet on game results (win/loss/tie) using !bet
 * Users can !give each other points
 * Users can fill in profile info, e.g. !update watchspade country USA & view e.g. !lookup watchspade country
-* Betting automatically closes after 5 minutes (note: need to make the timer customizable)
+* Betting automatically closes after 5 minutes
 * Tracks !uptime if you remember to !startstream
 * Other things...
 
