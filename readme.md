@@ -26,9 +26,10 @@ This is a work in progress, including the documentation.
 
 > BotSpade requires Ruby AND PHP. Ruby for the bot, PHP for the web page where people can check their points when you have talkative mode turned off. If you don't care about talkative (i.e. you don't have many users), then PHP is not required.
 
-BotSpade runs in Ruby 2.1.0 on top of the Isaac IRC chat bot gem. It's best to run it on a server like the ones you can get for $5/month from [Digital Ocean](http://digitalocean.com), but you can also run it on your mac or Linux based system. You can run it on a PC, too, but I don't know the steps for that and we'll have to add that later. 
+BotSpade runs in Ruby 2.1.0 on top of the Isaac IRC chat bot gem. It's best to run it on a server like the ones you can get for $5/month from [Digital Ocean](http://digitalocean.com), but you can also run it on your PC, Mac, or Linux based system. 
 
-On your server (or Mac), I recommend using [RVM](http://rvm.io). To do this you will need to SSH in to your server, or on a Mac you need to open Terminal. Ultimately, I'll explain that here, but for now: Google. 
+**SERVER/MAC/LINUX**
+On your server (or Mac/Linux), I recommend using [RVM](http://rvm.io). To do this you will need to SSH in to your server, or on a Mac you need to open Terminal. Ultimately, I'll explain that here, but for now: Google. 
 
 	\curl -sSL https://get.rvm.io | bash -s stable
 	
@@ -40,13 +41,16 @@ and make sure you're using it
 
 	rvm use 2.1.0
 	
+**PC**	
+If you're using a PC instead, head over to [Ruby Installer](http://rubyinstaller.org/downloads/) and download the installer for Ruby 2.0.0-p481. Run the installer file and run it, and make sure to **check all of the optional checkboxes** when you install it, especially the one about your path file. 	
+	
 then install the gem dependencies for BotSpade:
 
 	gem install isaac
 	gem install json
 	gem install sqlite3
 	
-and it's best to have screen:
+and it's best to have screen (not for PC):
 
 	apt-get install screen
 	
