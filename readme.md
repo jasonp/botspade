@@ -2,6 +2,8 @@
 
 Allow your viewers to bet with virtual points on your wins and losses, and other things.
 
+To get notified of updates & new features, join the [Google Group](https://groups.google.com/forum/#!forum/botspade).
+
 BotSpade can:
 * Change its name to yours! e.g. "BotEtheco"
 * Provide basic call-and-response in chat, e.g. !settings
