@@ -373,6 +373,12 @@ end
 
 ############################################################################
 #
+# Questions feature
+#
+
+
+############################################################################
+#
 # Basic Call & Response presets, toggles
 #
 
@@ -386,12 +392,14 @@ on :channel, /^!madeby/i do
 end
 
 on :channel, /^!makeadmin (.*)/i do |first|
-  user_to_make_admin = first.downcase
-  user = get_user(user_to_make_admin)
-  admin_value = 1  
-  if (user)
-    if set_user_admin_value(admin_value, user[0])
-      msg channel, "success"
+  if user_is_an_admin?(nick)
+    user_to_make_admin = first.downcase
+    user = get_user(user_to_make_admin)
+    admin_value = 1  
+    if (user)
+      if set_user_admin_value(admin_value, user[0])
+        msg channel, "success"
+      end
     end
   end
 end
@@ -412,12 +420,14 @@ on :channel, /^!list$/i do
 end
 
 on :channel, /^!removeadmin (.*)/i do |first|
-  user_to_make_admin = first.downcase
-  user = get_user(user_to_make_admin)
-  admin_value = 0  
-  if (user)
-    if set_user_admin_value(admin_value, user[0])
-      msg channel, "success"
+  if user_is_an_admin?(nick)
+    user_to_make_admin = first.downcase
+    user = get_user(user_to_make_admin)
+    admin_value = 0  
+    if (user)
+      if set_user_admin_value(admin_value, user[0])
+        msg channel, "success"
+      end
     end
   end
 end
