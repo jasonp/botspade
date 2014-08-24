@@ -43,13 +43,16 @@ on :connect do  # initializations
   # Create a table for custom user-generated call and response.
   @db.execute "CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, command TEXT, response TEXT, timestamp BIGINT)"
   
+  # Create a table for initializations and options/settings.
+  # @db.execute "CREATE TABLE IF NOT EXISTS options (id INTEGER PRIMARY KEY, option TEXT, value TEXT, timestamp BIGINT)"
+  
   # Create a table for custom user-generated items.
   @db.execute "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, description TEXT, price INT, ownable INT, timestamp BIGINT)"
   @db.execute "CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY, user_id INT, item_id INT, timestamp BIGINT)"
    @db.execute "CREATE TABLE IF NOT EXISTS queue (id INTEGER PRIMARY KEY, item_id INT, timestamp BIGINT)"
 
   # Track bets made. Resets every time bets are tallied.
-  @betsdb = {}
+  # @betsdb = {} deprecated
 
   # Toggle whether or not bets are allowed
   @betsopen = FALSE
@@ -156,7 +159,7 @@ helpers do
   def user_is_an_admin?(user)
     puts "checking admin for: #{@streamer}"
     check_this_user = get_user(user)
-    if (check_this_user[6] == 1) || check_this_user == @streamer
+    if (check_this_user[6] == 1) || user == @streamer
       return true
     else
       return false
@@ -204,8 +207,10 @@ end
 on :channel, /^!removecommand/i do
   if user_is_an_admin?(nick)
     newmessage = message.gsub("!removecommand ", "")
-    command_to_remove = message.split(' ')[0].downcase
-    command = db_get_command(command_to_remove)
+    command_to_remove = newmessage.split(' ')[0].downcase
+    puts "#{command_to_remove}"
+    command = db_get_command(command_to_remove)[0]
+    puts "about to delete command"
     msg channel, "success" if db_remove_command(command[0])  
   end
 end
@@ -387,6 +392,21 @@ on :channel, /^!makeadmin (.*)/i do |first|
   if (user)
     if set_user_admin_value(admin_value, user[0])
       msg channel, "success"
+    end
+  end
+end
+
+on :channel, /^!list$/i do
+  if talkative?
+    if user_is_an_admin?(nick)
+      commands = db_get_all_commands
+      if (commands)
+        list_of_commands = []
+        commands.each do |command|
+          list_of_commands << command[1] + " "
+        end
+        msg channel, "#{list_of_commands}"
+      end
     end
   end
 end
@@ -744,7 +764,8 @@ on :channel, /^!referredby (.*)/i do |first|
       if (newuser)
         if db_checkins_get(newuser[0])
           total_checkins = db_user_checkins_count(newuser[0])
-          give_points(nick, 14)
+          points_for_checking_in = 10 + @checkin_points
+          give_points(nick, points_for_checking_in)
           give_points(referrer, 10)
           msg channel, "Welcome #{nick}! You & #{referrer} have been awarded 10 #{@botmaster} Points! You have also been checked in for 4 #{@botmaster} Points."
         end
