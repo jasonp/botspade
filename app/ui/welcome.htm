@@ -1,0 +1,16 @@
+<div class="starter-template">
+  <h1>The <?=$POINTS_NAME?> Leaderboard</h1>
+
+	<table class="table">
+			<tr>
+				<th>Username</th>
+				<th><?php echo $POINTS_NAME; ?></th>
+			</tr>
+			<?php foreach($results as $item) { ?>
+			<tr>
+				<td><?php echo $item['username']; ?></td>
+				<td><?php echo $item['points']; ?></td>
+			<tr>
+			<?php } ?>
+	</table>
+</div>
