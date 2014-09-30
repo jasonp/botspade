@@ -27,9 +27,6 @@ on :connect do  # initializations
   # We will generate a custom user table so we have a relational ID for other tables.
   @db.execute "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, points INT, first_seen BIGINT, last_seen BIGINT, profile TEXT, admin INT)"
   @db.execute "CREATE UNIQUE INDEX IF NOT EXISTS username ON users (username)"
-  
-  # migration assist - will remove eventually
-  # @db.execute "ALTER TABLE users ADD COLUMN admin INT;"
 
   # Each checkin will have its own row, With related ID from users table and timestamp of when.
   @db.execute "CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY, user_id INT, timestamp BIGINT)"
@@ -43,16 +40,33 @@ on :connect do  # initializations
   # Create a table for custom user-generated call and response.
   @db.execute "CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, command TEXT, response TEXT, timestamp BIGINT)"
   
-  # Create a table for initializations and options/settings.
-  # @db.execute "CREATE TABLE IF NOT EXISTS options (id INTEGER PRIMARY KEY, option TEXT, value TEXT, timestamp BIGINT)"
-  
   # Create a table for custom user-generated items.
   @db.execute "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, description TEXT, price INT, ownable INT, timestamp BIGINT)"
   @db.execute "CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY, user_id INT, item_id INT, timestamp BIGINT)"
-   @db.execute "CREATE TABLE IF NOT EXISTS queue (id INTEGER PRIMARY KEY, item_id INT, timestamp BIGINT)"
+  @db.execute "CREATE TABLE IF NOT EXISTS queue (id INTEGER PRIMARY KEY, item_id INT, timestamp BIGINT)"
 
-  # Track bets made. Resets every time bets are tallied.
-  # @betsdb = {} deprecated
+  # Create a table for initializations and options/settings.
+  @db.execute "CREATE TABLE IF NOT EXISTS options (id INTEGER PRIMARY KEY, option TEXT, value TEXT, timestamp BIGINT)"
+
+  #####################
+  #
+  # Migration Manager - poor man's attempt to make upgrading painless
+  # Any DB changes/upgrades from 9/29/2014 -> go in this section & must reference a migration point
+  #
+  #
+  
+  @migration_level = db_get_migration_level
+  if @migration_level < 1
+    
+    # Fill options table with first info
+    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["migration", "1", Time.now.utc.to_i])
+    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["checkin_points", @checkin_points.to_s, Time.now.utc.to_i])
+    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["bets_auto_close_in", @bets_auto_close_in.to_s, Time.now.utc.to_i])
+    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["talkative", @talkative.to_s, Time.now.utc.to_i])
+
+    # bugfix on items & inventory
+    @db.execute "ALTER TABLE items ADD COLUMN live BOOL;"
+  end
 
   # Toggle whether or not bets are allowed
   @betsopen = FALSE
@@ -63,6 +77,8 @@ on :connect do  # initializations
   # Calculate the streamer's name, for initial admin
   @streamer = @botchan.to_s
   @streamer[0] = ''
+
+
 
 end
 
@@ -313,7 +329,7 @@ on :channel, /^!shop$/i do
     item_list = db_get_all_items
     item_names = []
     item_list.each do |item|
-      store_listing = item[1] + " (" + item[3] + "pts)"
+      store_listing = item[1] + " (" + item[3] + "pts)" #if item[5] == true
       item_names << store_listing
     end
     store_inventory = item_names.join(', ')
@@ -711,26 +727,28 @@ end
 on :channel, /^!give (.*) (.*)/i do |first, last|
   person = first.downcase
   points = last.to_i
-  if user_is_an_admin?(nick)
-    if get_user(person)
-      give_points(person, points)
-      msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
-    else
-      msg channel, "You can only give points to someone who has checked in at least once!"
-    end
-  else
-    if get_user(person)
-      if person_has_enough_points(nick, points)
-          give_points(person, points)
-          take_points(nick, points)
-          msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
+  if points > 0 
+    if user_is_an_admin?(nick)
+      if get_user(person)
+        give_points(person, points)
+        msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
       else
-        msg channel, "I'm sorry #{nick}, you don't have enough #{@botmaster} Points!"
+        msg channel, "You can only give points to someone who has checked in at least once!"
       end
     else
-      msg channel, "You can only give points to someone who has checked in at least once!"
+      if get_user(person)
+          if person_has_enough_points(nick, points)
+              give_points(person, points)
+              take_points(nick, points)
+              msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
+          else
+            msg channel, "I'm sorry #{nick}, you don't have enough #{@botmaster} Points!"
+          end
+      else
+        msg channel, "You can only give points to someone who has checked in at least once!"
+      end
     end
-  end
+  end  
 end
 
 on :channel, /^!give$/i do
@@ -741,7 +759,7 @@ end
 # Method for Spade to take points from naughty viewers
 # !take user points
 on :channel, /^!take (.*) (.*)/i do |first, last|
-  if user_is_an_admin?(nick)
+  if user_is_an_admin?(nick) && points > 0
     person = first.downcase
     points = last.to_i
     take_points(person, points)

@@ -1,6 +1,21 @@
 ############################################################################
 # Bot Spade SQLite3
 helpers do
+  
+  # Migration assistant
+
+  def db_get_migration_level
+    puts "Getting the DB migration level"
+    migration_level = @db.execute( "SELECT * FROM options WHERE option = ?", "migration").first
+    if (migration_level)
+      puts "#{migration_level}"
+      return migration_level[3].to_i
+    else
+      return 0
+    end
+  end
+  
+  
   def db_user_generate(protoname)
     username = protoname.downcase
     puts "#{username}" #debug
