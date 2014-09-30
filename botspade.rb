@@ -65,7 +65,7 @@ on :connect do  # initializations
     @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["talkative", @talkative.to_s, Time.now.utc.to_i])
 
     # bugfix on items & inventory
-    @db.execute "ALTER TABLE items ADD COLUMN live BOOL;"
+    @db.execute "ALTER TABLE items ADD COLUMN live TEXT;"
   end
 
   # Toggle whether or not bets are allowed
@@ -329,8 +329,8 @@ on :channel, /^!shop$/i do
     item_list = db_get_all_items
     item_names = []
     item_list.each do |item|
-      store_listing = item[1] + " (" + item[3] + "pts)" #if item[5] == true
-      item_names << store_listing
+      store_listing = item[1] + " (" + item[3] + "pts)" 
+      item_names << store_listing if item[6] == "true"
     end
     store_inventory = item_names.join(', ')
     msg channel, "Shop menu: #{store_inventory} (use !shop [item] for more info)"

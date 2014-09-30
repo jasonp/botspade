@@ -135,10 +135,10 @@ helpers do
   
   #
   # Items
-  # item[0] = id, [1] = name, [2] = description, [3] = price, [4] = ownable, [5] = timestamp
+  # item[0] = id, [1] = name, [2] = description, [3] = price, [4] = ownable, [5] = timestamp, [6] = live
   #
   def db_set_item(name, description, price, ownable)
-    return true if @db.execute( "INSERT INTO items ( name, description, price, ownable, timestamp ) VALUES ( ?, ?, ?, ?, ? )", [name, description, price, ownable, Time.now.utc.to_i])
+    return true if @db.execute( "INSERT INTO items ( name, description, price, ownable, timestamp, live ) VALUES ( ?, ?, ?, ?, ?, ? )", [name, description, price, ownable, Time.now.utc.to_i, true])
   end
   
   def db_get_all_items
@@ -163,6 +163,8 @@ helpers do
     end
   end
   
+  # Need to insert new method to check for mutliple items with same name, to allow for removal
+  
   def db_get_item_by_id(item_id)
     puts "Getting the item by ID: #{item_id}"
     the_item = @db.execute( "SELECT * FROM items WHERE id = ?", [item_id])[0]
@@ -174,8 +176,12 @@ helpers do
     end
   end
   
+  #
+  # Removes item from store but does not "delete" it to prevent inventory errors
+  #
+  
   def db_remove_item(item_id)
-    return true if @db.execute( "DELETE FROM items WHERE id = ? ", [item_id.to_i] )
+    return true if @db.execute( "UPDATE items SET live = ? WHERE id = ?", ["false", item_id]  )
   end
   
   #
