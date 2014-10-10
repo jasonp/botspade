@@ -137,8 +137,8 @@ helpers do
   # Items
   # item[0] = id, [1] = name, [2] = description, [3] = price, [4] = ownable, [5] = timestamp, [6] = live
   #
-  def db_set_item(name, description, price, ownable)
-    return true if @db.execute( "INSERT INTO items ( name, description, price, ownable, timestamp, live ) VALUES ( ?, ?, ?, ?, ?, ? )", [name, description, price, ownable, Time.now.utc.to_i, true])
+  def db_set_item(name, description, price, ownable, live)
+    return true if @db.execute( "INSERT INTO items ( name, description, price, ownable, timestamp, live ) VALUES ( ?, ?, ?, ?, ?, ? )", [name, description, price, ownable, Time.now.utc.to_i, live])
   end
   
   def db_get_all_items

@@ -244,7 +244,7 @@ on :channel, /^!addspecial/i do
     item_description_and_price = newmessage.gsub(new_item + " ", "")    
     new_item_price = item_description_and_price.split(' ')[0]
     item_description = item_description_and_price.gsub(new_item_price + " ", "")
-    msg channel, "success" if db_set_item(new_item, item_description, new_item_price, 0)
+    msg channel, "success" if db_set_item(new_item, item_description, new_item_price, 0, "true")
   end
 end
 
@@ -282,7 +282,7 @@ on :channel, /^!additem/i do
     item_description_and_price = newmessage.gsub(new_item + " ", "")    
     new_item_price = item_description_and_price.split(' ')[0]
     item_description = item_description_and_price.gsub(new_item_price + " ", "")
-    msg channel, "success" if db_set_item(new_item, item_description, new_item_price, 1)
+    msg channel, "success" if db_set_item(new_item, item_description, new_item_price, 1, "true")
   end
 end
 
