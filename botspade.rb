@@ -329,7 +329,7 @@ on :channel, /^!shop$/i do
     item_list = db_get_all_items
     item_names = []
     item_list.each do |item|
-      store_listing = item[1] + " (" + item[3] + "pts)" 
+      store_listing = item[1].to_s + " (" + item[3].to_s + "pts)" 
       item_names << store_listing if item[6] == "true"
     end
     store_inventory = item_names.join(', ')
