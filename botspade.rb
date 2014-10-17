@@ -826,9 +826,9 @@ end
 # Method for Spade to take points from naughty viewers
 # !take user points
 on :channel, /^!take (.*) (.*)/i do |first, last|
+  person = first.downcase
+  points = last.to_i
   if user_is_an_admin?(nick) && points > 0
-    person = first.downcase
-    points = last.to_i
     take_points(person, points)
   end
 end
