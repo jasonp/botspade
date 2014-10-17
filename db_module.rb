@@ -9,7 +9,7 @@ helpers do
     migration_level = @db.execute( "SELECT * FROM options WHERE option = ?", "migration").first
     if (migration_level)
       puts "#{migration_level}"
-      return migration_level[3].to_i
+      return migration_level[2].to_i
     else
       return 0
     end
@@ -132,6 +132,54 @@ helpers do
   def db_remove_command(command_id)
     return true if @db.execute( "DELETE FROM commands WHERE id = ? ", [command_id] )
   end
+  
+  #
+  # Raffles
+  # raffle[0] = id, [1] = keyword, [2] = status, [3] = winner, [4] = users, [5] = timestamp
+  #
+  
+  def db_set_raffle(keyword, status, winner)
+    return true if @db.execute( "INSERT INTO raffles ( keyword, status, winner, users, timestamp ) VALUES ( ?, ?, ?, ?, ? )", [keyword, status, winner, "", Time.now.utc.to_i])
+  end
+  
+  def db_get_raffle_by_id(raffle_id)
+     puts "Getting the raffle by ID: #{raffle_id}"
+     the_raffle = @db.execute( "SELECT * FROM raffles WHERE id = ?", [raffle_id])[0]
+     if (the_raffle)
+       puts "#{the_raffle}"
+       return the_raffle
+     else
+       return nil
+     end
+   end
+   
+   def db_set_raffle_winner(winner, raffle_id)
+     puts "Setting the Raffle winner to: #{winner}"
+     return true if @db.execute( "UPDATE raffles SET winner = ? WHERE id = ? ", [winner, raffle_id]  )
+   end
+   
+   def db_get_latest_raffle
+     puts "Getting latest raffle"
+     the_raffle = @db.execute("SELECT * FROM raffles")[-1]
+     if (the_raffle)
+       puts "#{the_raffle}"
+       return the_raffle
+     else
+       return nil
+     end
+   end
+   
+   def db_set_raffle_status(status, raffle_id)
+     puts "Setting the Raffle status to: #{status}"
+     return true if @db.execute( "UPDATE raffles SET status = ? WHERE id = ? ", [status, raffle_id]  )
+   end
+   
+   def db_set_raffle_users(protousers, raffle_id)
+     puts "Setting the Raffle users array"
+     users = JSON.generate(protousers)
+     return true if @db.execute( "UPDATE raffles SET users = ? WHERE id = ? ", [users, raffle_id]  )
+   end
+   
   
   #
   # Items

@@ -1,8 +1,6 @@
 # BotSpade: A Customizable Twitch.tv Chat Bot
 
-Allow your viewers to bet with virtual points on your wins and losses, and other things.
-
-To get notified of updates & new features, join the [Google Group](https://groups.google.com/forum/#!forum/botspade).
+Allow your viewers to bet with virtual points on your wins and losses, and other things. Watch or Star this GitHub to follow updates. 
 
 BotSpade can:
 * Change its name to yours! e.g. "BotEtheco"
@@ -13,11 +11,13 @@ BotSpade can:
 * Users can fill in profile info, e.g. !update watchspade country USA & view e.g. !lookup watchspade country
 * Betting automatically closes after 5 minutes
 * Tracks !uptime if you remember to !startstream
+* Great !raffle interface, allows winners to !pass or !accept the prize
 * Other things...
 
 
 Streamers using BotSpade:
 * http://twitch.tv/watchspade
+* http://twitch.tv/fivves
 * YOU! :)
 
 BotSpade is to Moobot/Nightbot as WordPress is to Blogger/Tumblr.

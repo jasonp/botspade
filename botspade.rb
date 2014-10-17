@@ -4,7 +4,7 @@
 #
 #   Copyright (c) 2014 by Jason Preston under MIT License
 #   A Twitch Chat Bot
-#   Version 0.9 - 7/31/2014
+#   Version 1.0 - 10/17/2014
 #
 #   Feel free to use for your own nefarious purposes
 
@@ -67,6 +67,16 @@ on :connect do  # initializations
     # bugfix on items & inventory
     @db.execute "ALTER TABLE items ADD COLUMN live TEXT;"
   end
+  
+  puts "check migration level: #{@migration_level}"
+  if @migration_level < 2  # how is this not true??
+    puts "migration level less than 2"
+    # Create a table for raffles
+    @db.execute "CREATE TABLE IF NOT EXISTS raffles (id INTEGER PRIMARY KEY, keyword TEXT, status TEXT, winner TEXT, users TEXT, timestamp BIGINT)"
+    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["migration", "2", Time.now.utc.to_i])
+    
+  end
+  
 
   # Toggle whether or not bets are allowed
   @betsopen = FALSE
@@ -78,6 +88,8 @@ on :connect do  # initializations
   @streamer = @botchan.to_s
   @streamer[0] = ''
 
+  # Raffle in memory
+  @current_raffle_users = []
 
 
 end
@@ -201,6 +213,32 @@ helpers do
       end
     end
     fake_daemon
+  end
+  
+  def check_for_raffle_entry(message, nick)
+    raffle = db_get_latest_raffle
+    if (raffle)
+      if raffle[2] == "live"
+        if message == raffle[1]
+          @current_raffle_users << nick
+          db_set_raffle_users(@current_raffle_users, raffle[0])
+        elsif message == "!pass"
+          if raffle[3] == nick
+            potential_winners = @current_raffle_users
+            potential_winners.delete(nick)
+            winner = potential_winners.sample
+            db_set_raffle_winner(winner, raffle[0])
+            msg channel, "Redrawing... the new winner is #{winner}! (type !pass to pass or !accept to win)"
+          end
+        elsif message == "!accept"
+          if raffle[3] == nick
+            db_set_raffle_status("closed", raffle[0])
+            @current_raffle_users = nil
+            msg channel, "Winner confirmed and recorded for posterity. The raffle is now closed. "
+          end        
+        end
+      end #live raffle check
+    end # check for non-nil
   end
   
 end
@@ -389,6 +427,35 @@ end
 
 ############################################################################
 #
+# Raffles
+#
+
+on :channel, /^!raffle (.*)/i do |first|
+  if user_is_an_admin?(nick)
+    key = first.downcase
+    # are we drawing a winner?
+    if key == "draw"
+      raffle = db_get_latest_raffle
+      if (raffle)
+        potential_winners = @current_raffle_users
+        winner = potential_winners.sample
+        db_set_raffle_winner(winner, raffle[0])
+        msg channel, "he total, honest-to-God, completely and utterly randomly selected winner is #{@botmaster}. Oh, oops, *ahem* Just Kidding.. it’s #{winner}! (type !pass to pass or !accept to win)"
+      end
+    else
+      if db_set_raffle(key, "live", "")
+        msg channel, "Raffle created. Type #{key} to enter the Raffle!"
+      end
+    end #check for "draw"
+  end
+end
+
+on :channel, /^!raffle$/i do
+  msg channel, "Admin can create a raffle, e.g.: !raffle !keyword"
+end
+
+############################################################################
+#
 # Questions feature
 #
 
@@ -399,7 +466,7 @@ end
 #
 
 on :channel, /^!changelog/i do
-  msg channel, "v0.9: Items can be created by streamer via command line and you can use !shop, !buy"
+  msg channel, "v1.0: Added raffles, fixed some bugs"
 end
 
 
@@ -766,11 +833,12 @@ on :channel, /^!take (.*) (.*)/i do |first, last|
   end
 end
 
-on :channel, /^!savedata/i do
-  if user_is_an_admin?(nick)
-    save_data
-  end
-end
+# Deprecated and slated for removal in later version
+#on :channel, /^!savedata/i do
+#  if user_is_an_admin?(nick)
+#    save_data
+#  end
+#end
 
 ############################################################################
 #
@@ -955,6 +1023,7 @@ end
 
 on :channel, // do
   respond_to_commands(message)
+  check_for_raffle_entry(message, nick)
 end
 
 
