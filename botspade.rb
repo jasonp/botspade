@@ -788,6 +788,31 @@ on :channel, /^!togglebets/i do
   end
 end
 
+on :channel, /^!ratio/i do
+  open_bets = db_get_all_open_bets
+  number_of_win_bets = 0
+  number_of_loss_bets = 0
+  number_of_tie_bets = 0
+  number_of_bets = open_bets.count
+  if number_of_bets == 0
+    msg channel, "There are no outstanding bets."
+  else
+    open_bets.each do |open_bet|
+      if open_bet[2] == 1
+        number_of_win_bets = number_of_win_bets + 1
+      elsif open_bet[2] == 2
+        number_of_loss_bets = number_of_loss_bets + 1
+      elsif open_bet[2] == 3
+        number_of_tie_bets = number_of_tie_bets + 1
+      end    
+    end
+    win_bet_ratio = number_of_win_bets.to_f / number_of_bets.to_f * 100
+    loss_bet_ratio = number_of_loss_bets.to_f / number_of_bets.to_f * 100
+    tie_bet_ratio = number_of_tie_bets.to_f / number_of_bets.to_f * 100
+    msg channel, "Bets ratio: #{win_bet_ratio}% bet win, #{loss_bet_ratio}% bet loss, #{tie_bet_ratio}% bet tie."
+  end
+end
+
 # Method for users to give points to other viewers
 # !give user points
 

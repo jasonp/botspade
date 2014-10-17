@@ -2,6 +2,8 @@
 
 Allow your viewers to bet with virtual points on your wins and losses, and other things. Watch or Star this GitHub to follow updates. 
 
+See the [User's Guide / Quick Reference here](https://github.com/jasonp/botspade/wiki/User's-Guide) for a list of commands you and your users can make use of. 
+
 BotSpade can:
 * Change its name to yours! e.g. "BotEtheco"
 * Provide basic call-and-response in chat, e.g. !settings
@@ -86,34 +88,7 @@ You can exit (stop) the bot by typing:
 
 ### Use / Admin
 
-!togglebets - Toggles betting open/closed. Bets will auto-close after 5 minutes or whatever default time you set.
-
-!reportgame [win/loss/tie] - Report the game you just played, tally bets and distribute winnings or losses. 
-
-!addcommand [command] [description] e.g.
-!addcommand !spade Spade doesn't dial the wrong number, you answer the wrong phone
-
-!removecommand [command], e.g. !removecommand !spade
-
-!additem [Spade's Fedora] 20 This is Spade's infamous Fedora.
-
-!removeitem [Spade's Fedora]
-
-!addspecial [Fedora] 20 Make spade wear a fedora on stream
-
-!removespecial [Fedora]
-
-!startstream - start stream timer
-
-!endstream - ends stream timer
-
-!uptime - shows stream uptime
-
-!checkin - checks the user in and provides points per the checkin-points amount.
-
-!bet [points] [win/loss/tie]
-
-!shop - lists items in the shop.
+All available use/admin related commands are now listed in the [user's guide](https://github.com/jasonp/botspade/wiki/User's-Guide).
 
 ### Contributing
 

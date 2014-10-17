@@ -278,7 +278,7 @@ helpers do
   end
   
   # DB fucntions for betting
-  # bet[0] = id, [1] = user_id, [2] = bet (0/1/2), [3] = bet_amount, [4] = result (was the bet a winner), [5] = timestamp
+  # bet[0] = id, [1] = user_id, [2] = bet (1/2/3), [3] = bet_amount, [4] = result (was the bet a winner), [5] = timestamp
   
   def db_create_bet(user_id, bet, bet_amount, result)
     return true if @db.execute( "INSERT INTO bets ( user_id, bet, bet_amount, result, timestamp ) VALUES ( ?, ?, ?, ?, ? )", [user_id, bet, bet_amount, result, Time.now.utc.to_i])
