@@ -187,10 +187,12 @@ helpers do
   def user_is_an_admin?(user)
     puts "checking admin for: #{@streamer}"
     check_this_user = get_user(user)
-    if (check_this_user[6] == 1) || user == @streamer
-      return true
-    else
-      return false
+    if (check_this_user)
+      if (check_this_user[6] == 1) || user == @streamer
+        return true
+      else
+        return false
+      end
     end
   end
   
@@ -220,8 +222,10 @@ helpers do
     if (raffle)
       if raffle[2] == "live"
         if message == raffle[1]
-          @current_raffle_users << nick
-          db_set_raffle_users(@current_raffle_users, raffle[0])
+          if !@current_raffle_users.include(nick)
+            @current_raffle_users << nick
+            db_set_raffle_users(@current_raffle_users, raffle[0])
+          end
         elsif message == "!pass"
           if raffle[3] == nick
             potential_winners = @current_raffle_users
