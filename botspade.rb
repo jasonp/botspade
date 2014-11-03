@@ -222,7 +222,7 @@ helpers do
     if (raffle)
       if raffle[2] == "live"
         if message == raffle[1]
-          if !@current_raffle_users.include(nick)
+          if !@current_raffle_users.include?(nick)
             @current_raffle_users << nick
             db_set_raffle_users(@current_raffle_users, raffle[0])
           end
