@@ -14,6 +14,8 @@ require 'sqlite3'
 require "./botconfig"
 require './db_module'
 
+require 'net/http'
+
 
 
 on :connect do  # initializations
@@ -73,7 +75,23 @@ on :connect do  # initializations
     puts "migration level less than 2"
     # Create a table for raffles
     @db.execute "CREATE TABLE IF NOT EXISTS raffles (id INTEGER PRIMARY KEY, keyword TEXT, status TEXT, winner TEXT, users TEXT, timestamp BIGINT)"
-    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["migration", "2", Time.now.utc.to_i])
+    @db.execute( "UPDATE options SET value = ? WHERE option = ?", [2, "migration"] )
+    
+  end
+  
+  puts "check migration level: #{@migration_level}"
+  if @migration_level < 3 
+    puts "migration level less than 3"
+    # Add more options to the options table - 11/4/2014
+    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["idle_points", 2, Time.now.utc.to_i])
+    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["idle_interval", 5, Time.now.utc.to_i])
+    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["enable_idle_points", "true", Time.now.utc.to_i])
+    @db.execute( "INSERT INTO options ( option, value, timestamp ) VALUES ( ?, ?, ? )", ["last_points_issued_at", Time.now.utc.to_i, Time.now.utc.to_i])
+    
+    # beginning to track time on stream
+    @db.execute "ALTER TABLE users ADD COLUMN streamtime INT;"
+    
+    @db.execute( "UPDATE options SET value = ? WHERE option = ?", [3, "migration"] )
     
   end
   
@@ -183,6 +201,24 @@ helpers do
       end
     end
   end
+  
+  # Ugly, not-DRY, arg:
+  def make_pretty_time(time_in_seconds)
+    if time_in_seconds < 60
+      return "#{time_in_seconds} seconds"
+    elsif time_in_seconds > 60 && time_in_seconds < 3600
+      time_in_minutes = time_in_seconds / 60
+      return "#{time_in_minutes} minutes"
+    elsif time_in_seconds > 3600 && time_in_seconds < 999999999
+      time_in_hours = time_in_seconds / 3600
+      calc_remainder = time_in_hours.to_i * 3600
+      remainder = time_in_seconds - calc_remainder
+      remainder_in_minutes = remainder / 60
+      return "#{time_in_hours.to_i} hours and #{remainder_in_minutes} minutes"
+    else
+      return "#{uptime} seconds"
+    end
+  end
 
   def user_is_an_admin?(user)
     puts "checking admin for: #{@streamer}"
@@ -214,7 +250,7 @@ helpers do
         end
       end
     end
-    fake_daemon
+    
   end
   
   def check_for_raffle_entry(message, nick)
@@ -243,6 +279,54 @@ helpers do
         end
       end #live raffle check
     end # check for non-nil
+  end
+  
+  def get_all_users_in_channel
+    url_string = "https://tmi.twitch.tv/group/user/"+ @streamer + "/chatters"
+    puts url_string
+    result = Net::HTTP.get(URI.parse(url_string))
+    parsed = JSON.parse(result)
+
+    all_users_in_channel = []
+    parsed["chatters"]["moderators"].each do |p|
+      all_users_in_channel << p
+    end
+    parsed["chatters"]["viewers"].each do |p|
+      all_users_in_channel << p
+    end
+    
+    puts "Users here:" + all_users_in_channel.to_s
+    return all_users_in_channel
+  end
+  
+  def give_idle_points_and_track_stream_time
+    
+    # first check to see if interval has passed
+    timer = db_get_option("last_points_issued_at").first.to_i
+    interval = db_get_option("idle_interval").first.to_i * 60
+    points_to_give = db_get_option("idle_points").first.to_i
+    time_since_last_points = Time.now.utc.to_i - timer
+    gateway = timer + interval
+    if Time.now.utc.to_i > gateway
+      puts "time to update idle points & timers"
+      all_users_in_channel = get_all_users_in_channel
+    
+      all_users_in_channel.each do |u|
+        user = get_user(u)
+        if user == nil
+          puts "created new user: #{u}" if write_user(u)
+        end # check for user in DB
+        if db_get_option("enable_idle_points").first == "true"
+          give_points(u, points_to_give)
+          puts "idle points given" 
+        end 
+        streamtime = db_get_streamtime(u).first || 0
+        new_streamtime = streamtime.to_i + time_since_last_points.to_i
+        puts "updated streamtime for #{u}" if db_update_streamtime(new_streamtime, u)
+      end # all users loop
+    
+    end # timer check
+
   end
   
 end
@@ -460,8 +544,56 @@ end
 
 ############################################################################
 #
-# Questions feature
+# Idling Points
 #
+
+on :channel, /^!idlepoints (.*)/i do |first|
+  if user_is_an_admin?(nick)
+    points_to_set = first
+    interval = db_get_option("idle_interval").first
+    if db_set_option(points_to_set, "idle_points")
+      msg channel, "Users will get #{points_to_set} #{@botmaster} Points every #{interval} minutes"
+    end
+  end
+end
+
+on :channel, /^!idlepoints$/i do
+  points = db_get_option("idle_points").first
+  interval = db_get_option("idle_interval").first
+  msg channel, "Users in chat get #{points} points every #{interval} minutes for."
+end
+
+on :channel, /^!interval (.*)/i do |first|
+  if user_is_an_admin?(nick)
+    interval_for_points = first
+    points = db_get_option("idle_points").first
+    if db_set_option(interval_for_points, "idle_interval")
+      msg channel, "Users will get #{points} #{@botmaster} Points every #{interval_for_points} minutes"
+    end
+  end
+end
+
+on :channel, /^!interval$/i do
+  points = db_get_option("idle_points").first
+  interval = db_get_option("idle_interval").first
+  msg channel, "Users in chat get #{points} points every #{interval} minutes for."
+end
+
+## NOT WORKING YET
+
+on :channel, /^!toggleidle/i do
+  if user_is_an_admin?(nick)
+    points_enabled = db_get_option("enable_idle_points").first
+    puts "#{points_enabled}"
+    if points_enabled == "true"
+      db_set_option("false", "enable_idle_points")
+      msg channel, "Idle points disabled"
+    else
+      db_set_option("true", "enable_idle_points")
+      msg channel, "Idle points enabled"
+    end  
+  end
+end
 
 
 ############################################################################
@@ -582,7 +714,7 @@ on :channel, /^!uptime/i do
     msg channel, "Whoops, #{@botmaster} forgot to start the timer! Starting it now..."
     @stream_start_time = Time.now.utc
   end
-  fake_daemon
+  
 end
 
 ############################################################################
@@ -627,8 +759,7 @@ end
 
 on :channel, /^!dump$/i do
   if user_is_an_admin?(nick)
-    user = get_user(nick)
-    db_get_all_open_bets
+    get_all_users_in_channel
     msg channel, "Dumped"
   end
 end
@@ -694,7 +825,6 @@ end
 #
 
 on :channel, /^!bet$/i do
-  fake_daemon
   bet_status = ""
   if @betsopen == TRUE
     bet_status = "(Bets are open right now)"
@@ -705,7 +835,7 @@ on :channel, /^!bet$/i do
 end
 
 on :channel, /^!bet (.*) (.*)/i do |first, last|
-  fake_daemon
+  
   bet_amount = first.to_i
   win_loss = last.downcase
   user = get_user(nick)
@@ -1003,28 +1133,37 @@ on :channel, /^!points/i do
   if !talkative? 
     msg channel, "You can check your points here: #{@leaderboard_location}"
   end
-  fake_daemon
+  
 end
 
 
-on :channel, /^!leaderboard/i do
+on :channel, /^!leaderboard$/i do
   points = db_points(5)
   s = "Leaderboard: "
   points.each do |name, points|
     s << "#{name} (#{points} points), "
   end
   msg channel, s
-  fake_daemon
+  
 end
 
-on :channel, /^!top/i do
+on :channel, /^!top$/i do
   checkins = db_checkins(5)
   s = "Top Viewers: "
   checkins.each do |name, amount|
     s << "#{name} (#{amount} checkins), "
   end
-  msg channel, s
-  fake_daemon
+  msg channel, s 
+end
+
+on :channel, /^!time$/i do
+  viewers = db_streamtime(5)
+  s = "Most Time on Stream: "
+  viewers.each do |name, streamtime|
+    pretty_time = make_pretty_time(streamtime.to_i)
+    s << "#{name} (#{pretty_time}), "
+  end
+  msg channel, s 
 end
 
 on :channel, /^!statsme/i do
@@ -1040,7 +1179,8 @@ on :channel, /^!statsme/i do
     end
     ratio = correct_bets.to_f / past_bets.count.to_f
     incorrect_bets = past_bets.count - correct_bets
-    msg channel, "#{nick}: #{checkins} checkins! Winning bets ratio: #{ratio} with #{correct_bets} correct bets and #{incorrect_bets} incorrect bets."
+    time_in_stream_in_minutes = user[7].to_i / 60
+    msg channel, "#{nick}: #{time_in_stream_in_minutes} minutes in stream, & #{checkins} checkins! Winning bets ratio: #{ratio} with #{correct_bets} correct bets and #{incorrect_bets} incorrect bets."
   end
 end
 
@@ -1053,6 +1193,8 @@ end
 on :channel, // do
   respond_to_commands(message)
   check_for_raffle_entry(message, nick)
+  give_idle_points_and_track_stream_time
+  fake_daemon
 end
 
 

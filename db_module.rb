@@ -52,9 +52,32 @@ helpers do
 
 
   #
+  # Write and get OPTIONS
+  #
+  
+  def db_get_option(option_name)
+    puts "getting #{option_name}" #debug
+    option_found = @db.execute( "SELECT value FROM options WHERE option LIKE ?", [option_name] ).first
+    if (user)
+      return option_found
+    else
+      puts "#{option_name} not found in db"
+      return nil
+    end
+  end
+  
+  def db_set_option(option_value, option_name)
+    puts "setting #{option_name} to #{option_value}"
+    return TRUE if @db.execute( "UPDATE options SET value = ? WHERE option = ?", [option_value, option_name] )
+  end
+
+
+
+
+  #
   # GET USER function
   # result is an array: user[0] = id, user[1] = username, user[2] = points, 
-  # user[3] = first_seen, user[4] = last_seen, user[5] = profile, user[6] = admin
+  # user[3] = first_seen, user[4] = last_seen, user[5] = profile, user[6] = admin, user[7] = streamtime
   #
   def get_user(protoname)
     username = protoname.downcase
@@ -77,6 +100,21 @@ helpers do
       puts "#{user_id} not found in db"
       return nil
     end
+  end
+  
+  def db_get_streamtime(protoname)
+    username = protoname.downcase
+    streamtime = @db.execute( "SELECT streamtime FROM users WHERE username LIKE ?", [username] ).first
+    if (streamtime)
+      return streamtime
+    else
+      puts "#{streamtime} not found in db"
+      return nil
+    end
+  end
+  
+  def db_update_streamtime(new_streamtime, username)
+    return TRUE if @db.execute( "UPDATE users SET streamtime = ? WHERE username LIKE ?", [new_streamtime, username] )
   end
   
   #
@@ -369,6 +407,11 @@ helpers do
   def db_points(limit)
     points = @db.execute( "SELECT username, points FROM users ORDER BY points DESC LIMIT ?", [limit] )
     return points
+  end
+  
+  def db_streamtime(limit)
+    streamtime = @db.execute( "SELECT username, streamtime FROM users ORDER BY streamtime DESC LIMIT ?", [limit] )
+    return streamtime
   end
 
   def db_user_checkins_count(user_id)
