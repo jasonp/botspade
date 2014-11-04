@@ -301,12 +301,16 @@ helpers do
   
   def give_idle_points_and_track_stream_time
     
-    # first check to see if interval has passed
-    timer = db_get_option("last_points_issued_at").first.to_i
+    # variables:
+    last_points_issued_at = db_get_option("last_points_issued_at").first.to_i
     interval = db_get_option("idle_interval").first.to_i * 60
     points_to_give = db_get_option("idle_points").first.to_i
-    time_since_last_points = Time.now.utc.to_i - timer
-    gateway = timer + interval
+    gateway = last_points_issued_at + interval
+    
+    # how long ago did we give points?
+    time_since_last_points = Time.now.utc.to_i - last_points_issued_at
+    
+    # if NOW is BIGGER than the gateway...
     if Time.now.utc.to_i > gateway
       puts "time to update idle points & timers"
       all_users_in_channel = get_all_users_in_channel
@@ -318,13 +322,16 @@ helpers do
         end # check for user in DB
         if db_get_option("enable_idle_points").first == "true"
           give_points(u, points_to_give)
-          puts "idle points given" 
+          puts "#{points_to_give} idle points given to #{u}" 
         end 
         streamtime = db_get_streamtime(u).first || 0
         new_streamtime = streamtime.to_i + time_since_last_points.to_i
         puts "updated streamtime for #{u}" if db_update_streamtime(new_streamtime, u)
       end # all users loop
-    
+      
+      # now SET the freaking last_points_issued_at time
+      db_set_option(Time.now.utc.to_i, "last_points_issued_at")
+      
     end # timer check
 
   end
@@ -560,7 +567,7 @@ end
 on :channel, /^!idlepoints$/i do
   points = db_get_option("idle_points").first
   interval = db_get_option("idle_interval").first
-  msg channel, "Users in chat get #{points} points every #{interval} minutes for."
+  msg channel, "Users in chat get #{points} points every #{interval} minutes."
 end
 
 on :channel, /^!interval (.*)/i do |first|
@@ -576,7 +583,7 @@ end
 on :channel, /^!interval$/i do
   points = db_get_option("idle_points").first
   interval = db_get_option("idle_interval").first
-  msg channel, "Users in chat get #{points} points every #{interval} minutes for."
+  msg channel, "Users in chat get #{points} points every #{interval} minutes."
 end
 
 ## NOT WORKING YET
@@ -1179,8 +1186,8 @@ on :channel, /^!statsme/i do
     end
     ratio = correct_bets.to_f / past_bets.count.to_f
     incorrect_bets = past_bets.count - correct_bets
-    time_in_stream_in_minutes = user[7].to_i / 60
-    msg channel, "#{nick}: #{time_in_stream_in_minutes} minutes in stream, & #{checkins} checkins! Winning bets ratio: #{ratio} with #{correct_bets} correct bets and #{incorrect_bets} incorrect bets."
+    pretty_time = make_pretty_time(user[7].to_i)
+    msg channel, "#{nick}: #{pretty_time} in stream, & #{checkins} checkins! Winning bets ratio: #{ratio} with #{correct_bets} correct bets and #{incorrect_bets} incorrect bets."
   end
 end
 
