@@ -963,8 +963,12 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
   if points > 0 
     if user_is_an_admin?(nick)
       if get_user(person)
-        give_points(person, points)
-        msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
+        if (person == nick)
+          msg channel, "#{nick}, you can't give yourself points like this!"
+        else
+          give_points(person, points)
+          msg channel, "#{nick} has given #{person} #{points} #{@botmaster} Points"
+        end
       else
         msg channel, "You can only give points to someone who has checked in at least once!"
       end
