@@ -963,7 +963,7 @@ on :channel, /^!give (.*) (.*)/i do |first, last|
   if points > 0 
     if user_is_an_admin?(nick)
       if get_user(person)
-        if (person == nick)
+        if person == nick
           msg channel, "#{nick}, you can't give yourself points like this!"
         else
           give_points(person, points)
